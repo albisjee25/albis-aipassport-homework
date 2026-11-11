@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>作业助手 · 家长后台</title>
+<style>
+  :root {
+    --bg: #eef2f7; --card: #ffffff; --ink: #1f2a37; --soft: #6b7787; --line: #dfe5ee;
+    --shell: #c9d6e6; --visor: #18202b; --eye: #f5d33f; --lamp: #e2483d; --ok: #2f9e6b;
+    --math: #3d7be0; --chinese: #d9534f; --english: #8a5cd6; --other: #7a8594;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 28px;
+           background: var(--card); border-bottom: 1px solid var(--line); }
+  .bot { width: 46px; height: 40px; background: var(--shell); border-radius: 10px 10px 8px 8px;
+         position: relative; flex: none; }
+  .bot::before { content: ""; position: absolute; left: 17px; top: -7px; width: 12px; height: 7px;
+                 background: var(--lamp); border-radius: 3px 3px 0 0; }
+  .bot .visor { position: absolute; left: 7px; right: 7px; top: 12px; height: 17px; background: var(--visor);
+                border-radius: 5px; display: flex; justify-content: center; align-items: center; gap: 6px; }
+  .bot .visor i { width: 9px; height: 6px; background: var(--eye); border-radius: 2px;
+                  animation: blink 5s infinite; }
+  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  header h1 { font-size: 19px; margin: 0; }
+  header .sub { color: var(--soft); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #e9f6ef; color: var(--ok); }
+  .pill.bad { background: #fdecea; color: var(--lamp); }
+
+  main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 22px;
+         padding: 22px 28px 40px; max-width: 1240px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--card); border-radius: var(--radius); padding: 20px 22px;
+            box-shadow: 0 1px 2px rgba(20, 40, 70, .05); }
+  main > div { display: flex; flex-direction: column; gap: 22px; }   /* gap ignores hidden sections */
+  h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+  .hint { color: var(--soft); font-size: 13px; margin: 0 0 14px; }
+
+  .progress { display: flex; align-items: center; gap: 12px; margin: 6px 0 16px; color: var(--soft); font-size: 13px; }
+  .bar { flex: 1; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .bar b { display: block; height: 100%; background: var(--ok); width: 0; transition: width .4s; }
+
+  .task { display: grid; grid-template-columns: 26px 54px minmax(0, 1fr) 92px 86px 76px; align-items: center;
+          gap: 10px; padding: 10px 6px; border-top: 1px solid var(--line); }
+  .task:first-child { border-top: 0; }
+  .task.done .title { color: var(--soft); text-decoration: line-through; }
+  .task.doing { background: #fffbe8; border-radius: 10px; }
+  .num { color: var(--soft); font-variant-numeric: tabular-nums; text-align: right; }
+  .subj { font-size: 12px; padding: 2px 0; border-radius: 6px; color: #fff; text-align: center; }
+  .subj.数学 { background: var(--math); } .subj.语文 { background: var(--chinese); }
+  .subj.英语 { background: var(--english); } .subj.其他 { background: var(--other); }
+  .title { border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; font: inherit; width: 100%;
+           background: transparent; color: inherit; }
+  .title:hover, .title:focus { border-color: var(--line); background: #fafbfd; outline: none; }
+  .meta { font-size: 12px; color: var(--soft); padding-left: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag { background: #f0f3f7; border-radius: 5px; padding: 0 6px; }
+  .tag.opt { background: #fff4d6; color: #9a6b00; }
+  .tag.hist { background: #e6f4ec; color: #1f7a4d; }
+  .tag.real { background: #e8effb; color: #2c5aa0; }
+  .dur { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .dur th, .dur td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .dur th { color: var(--soft); font-weight: 500; }
+  .dur small { color: var(--soft); }
+  .mins { display: flex; align-items: center; gap: 4px; color: var(--soft); font-size: 13px; }
+  .mins input { width: 52px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; font: inherit; text-align: center; }
+  select.status { border: 1px solid var(--line); border-radius: 8px; padding: 4px; font: inherit; background: #fff; }
+  .ops { display: flex; gap: 2px; justify-content: flex-end; }
+  .ops button { border: 0; background: none; cursor: pointer; color: var(--soft); padding: 4px 5px; border-radius: 6px; font-size: 14px; }
+  .ops button:hover { background: #f0f3f7; color: var(--ink); }
+  .ops button.del:hover { background: #fdecea; color: var(--lamp); }
+  .empty { text-align: center; color: var(--soft); padding: 34px 0 26px; }
+
+  .row { display: flex; gap: 8px; margin-top: 14px; }
+  input.text { flex: 1; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
+  button.main { border: 0; background: var(--ink); color: #fff; border-radius: 10px; padding: 9px 16px;
+                font: inherit; cursor: pointer; white-space: nowrap; }
+  button.main:disabled { opacity: .5; cursor: wait; }
+  button.ghost { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 14px;
+                 font: inherit; cursor: pointer; color: var(--soft); }
+  button.ghost:hover { color: var(--lamp); border-color: #f3c4bf; }
+
+  .drop { border: 2px dashed var(--shell); border-radius: var(--radius); padding: 28px 16px; text-align: center;
+          cursor: pointer; transition: background .2s, border-color .2s; color: var(--soft); }
+  .drop.over { background: #f3f7fc; border-color: var(--math); }
+  .drop strong { color: var(--ink); display: block; font-size: 15px; margin-bottom: 4px; }
+  .drop .thumbs { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .drop .thumbs img { height: 74px; border-radius: 6px; border: 1px solid var(--line); }
+
+  .status-line { margin-top: 12px; font-size: 13px; min-height: 20px; color: var(--soft); }
+  .status-line.err { color: var(--lamp); }
+  .working { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 6px; }
+  .working i { width: 6px; height: 6px; border-radius: 2px; background: var(--eye); animation: scan 1s infinite; }
+  .working i:nth-child(2) { animation-delay: .15s; } .working i:nth-child(3) { animation-delay: .3s; }
+  @keyframes scan { 50% { opacity: .2; transform: translateY(-2px); } }
+
+  .chat { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
+  .bubble { padding: 8px 12px; border-radius: 12px; max-width: 88%; font-size: 14px; }
+  .bubble.kid { align-self: flex-end; background: #e7f0fd; }
+  .bubble.bot { align-self: flex-start; background: var(--visor); color: var(--eye); }
+  .bubble small { display: block; color: var(--soft); font-size: 11px; margin-top: 2px; }
+  .bubble.bot small { color: #8d97a5; }
+  .file { font-size: 13px; color: var(--soft); margin-top: 10px; }
+  .turn { border-top: 1px solid var(--line); padding: 12px 0; font-size: 14px; }
+  .turn:first-child { border-top: 0; }
+  .turn .top { display: flex; align-items: center; gap: 8px; color: var(--soft); font-size: 12px; }
+  .turn .top .q { margin-left: auto; padding: 1px 8px; border-radius: 99px; background: #e9f6ef; color: var(--ok); }
+  .turn .top .q.bad { background: #fff4d6; color: #9a6b00; }
+  .turn audio { width: 100%; height: 32px; margin: 6px 0; }
+  .turn .heard { font-size: 15px; }
+  .turn .raw { color: var(--soft); font-size: 12px; }
+  .turn .did { color: var(--soft); font-size: 13px; margin-top: 2px; }
+  .turn .metrics { color: var(--soft); font-size: 11px; margin-top: 2px; }
+  .ph { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .ph:first-child { border-top: 0; }
+  .ph .k { font-size: 11px; padding: 1px 6px; border-radius: 5px; background: #f0f3f7; color: var(--soft); flex: none; }
+  .ph .k.fix { background: #fdecea; color: var(--lamp); }
+  .ph .x { color: var(--soft); font-size: 12px; flex: 1; }
+  .ph button { border: 0; background: none; color: var(--soft); cursor: pointer; }
+  .ph button:hover { color: var(--lamp); }
+  a.nav { text-decoration: none; color: inherit; }
+  a.nav:hover { filter: brightness(0.95); }
+  .test-only [data-page="main"], .main-only [data-page="test"] { display: none; }
+  footer { text-align: center; color: var(--soft); font-size: 12px; padding-bottom: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bot"><div class="visor"><i></i><i></i></div></div>
+  <div>
+    <h1 id="title">作业助手 · 家长后台</h1>
+    <div class="sub" id="day">—</div>
+  </div>
+  <div class="spacer"></div>
+  <a class="pill nav" id="nav" href="/test">测试页</a>
+  <span class="pill" id="health">连接中…</span>
+</header>
+
+<main>
+  <div>
+    <section>
+      <h2>今日作业</h2>
+      <div class="progress"><span id="progress-text">—</span><div class="bar"><b id="bar"></b></div><span id="minutes-left"></span></div>
+      <div id="list"></div>
+      <div class="row">
+        <input class="text" id="new-title" placeholder="手动加一项，例如：练字一页">
+        <input class="text" id="new-min" type="number" min="1" max="180" value="15" style="flex:0 0 74px">
+        <button class="main" id="add">添加</button>
+      </div>
+      <div class="row" style="justify-content:flex-end"><button class="ghost" id="clear">清空今天的清单</button></div>
+    </section>
+  </div>
+
+  <div>
+    <section data-page="main">
+      <h2>连接设备</h2>
+      <div id="setup" style="font-size:14px;line-height:1.9">读取中…</div>
+      <div class="file">设备和这台电脑要在同一个 Wi-Fi。令牌只给自己的设备用，别发到群里。</div>
+    </section>
+
+    <section data-page="main">
+      <h2>上传作业截图</h2>
+      <p class="hint">把家长群里老师发的作业截图拖进来，或直接按 ⌘V 粘贴。AI 会整理成清单，并马上发到孩子的设备上。</p>
+      <div class="drop" id="drop">
+        <strong>拖入截图 / 点击选择 / ⌘V 粘贴</strong>
+        一次最多 6 张，同一天的作业会自动去重
+        <div class="thumbs" id="thumbs"></div>
+      </div>
+      <input type="file" id="file" accept="image/*" multiple hidden>
+      <div class="status-line" id="shot-status"></div>
+    </section>
+
+    <section data-page="test">
+      <h2>试试和小机器人说话</h2>
+      <p class="hint">不用拿设备，在这里模拟孩子说的话，看小机器人会怎么改清单、怎么回答，并听到它的声音。注意：这里的操作会改动真实清单。有作业在计时时按“计时页”的规则处理，否则按“清单页”的规则（不能用语音改时间）。</p>
+      <div class="row" style="margin-top:0">
+        <input class="text" id="say" placeholder="例如：现在先做数学练习册 / 再给我五分钟">
+        <button class="main" id="say-btn">说</button>
+      </div>
+      <div class="file">或者上传一段录音（手机录的 m4a、wav 都可以）：<input type="file" id="audio" accept="audio/*,.m4a,.wav,.mp3,.aac"></div>
+      <div class="chat" id="chat"></div>
+    </section>
+
+    <section data-page="test">
+      <h2>最近的语音对话 <button class="ghost" id="log-refresh" style="margin-left:auto;padding:3px 10px;font-size:13px">刷新</button></h2>
+      <p class="hint">孩子在设备上每说一次话，这里都会留一条：可以回放原始录音，对照“听到的文字”，判断是录音不清楚还是识别错了。只保存在这台 Mac 上，最多保留最近 30 条。</p>
+      <div id="turns"><div class="empty">还没有语音对话</div></div>
+    </section>
+
+    <section data-page="main">
+      <h2>用时记录 <button class="ghost" id="dur-refresh" style="margin-left:auto;padding:3px 10px;font-size:13px">刷新</button></h2>
+      <p class="hint">每项作业在设备上标“做完了”时记下实际用时（暂停不算）。每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
+      <div id="durations"><div class="empty">还没有用时记录</div></div>
+    </section>
+
+    <section data-page="main">
+      <h2>作业短语库</h2>
+      <p class="hint"><b>纠错</b>：识别常听错的词，识别后自动替换（例如“音一中”→“英译中”）。<b>术语</b>：老师的简写，AI 会照原样保留（例如“家默”）。</p>
+      <div id="phrases"></div>
+      <div class="row">
+        <select id="ph-kind" class="status"><option value="term">术语</option><option value="fix">纠错</option></select>
+        <input class="text" id="ph-text" placeholder="正确写法，如：一课一练" style="flex:1">
+      </div>
+      <div class="row" style="margin-top:6px">
+        <input class="text" id="ph-extra" placeholder="术语：含义（可不填）；纠错：常被听成什么，用逗号分隔">
+        <button class="main" id="ph-add">添加</button>
+      </div>
+      <div class="status-line" id="ph-status"></div>
+    </section>
+  </div>
+</main>
+<footer>只在这台 Mac 上可用 · 孩子的录音只在本机识别，不会上传</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+// Two pages from one file: "/" for everyday use, "/test" for trying the robot and
+// checking what the device heard.
+const TEST = location.pathname.replace(/\/$/, "") === "/test";
+document.body.classList.add(TEST ? "test-only" : "main-only");
+if (TEST) {
+  $("#title").textContent = "作业助手 · 测试页";
+  $("#nav").textContent = "回到家长后台";
+  $("#nav").href = "/";
+  document.title = "作业助手 · 测试页";
+}
+let state = null, editing = false, busy = false;
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { headers: opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {}, ...opts });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || `请求失败（${r.status}）`);
+  return data;
+}
+const json = (method, body) => ({ method, body: JSON.stringify(body) });
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SRC = { screenshot: "老师截图", voice: "孩子口述", admin: "家长添加" };
+
+function render(s) {
+  state = s;
+  const d = new Date(s.day + "T00:00:00");
+  $("#day").textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · 星期${"日一二三四五六"[d.getDay()]}`;
+  const required = s.tasks.filter((t) => !t.optional);
+  const done = required.filter((t) => t.status === "done").length;
+  $("#progress-text").textContent = required.length ? `完成 ${done} / ${required.length}` : "还没有作业";
+  $("#bar").style.width = required.length ? `${(done / required.length) * 100}%` : "0";
+  const left = s.tasks.filter((t) => t.status !== "done" && !t.optional).reduce((a, t) => a + t.minutes, 0);
+  $("#minutes-left").textContent = left ? `剩余约 ${left} 分钟` : "";
+  if (!s.tasks.length) {
+    $("#list").innerHTML = `<div class="empty">今天还没有作业。<br>在右边上传家长群的作业截图试试。</div>`;
+    return;
+  }
+  $("#list").innerHTML = s.tasks.map((t, i) => `
+    <div class="task ${t.status}" data-id="${t.id}">
+      <span class="num">${i + 1}</span>
+      <span class="subj ${esc(t.subject)}">${esc(t.subject)}</span>
+      <div>
+        <input class="title" value="${esc(t.title)}" data-f="title" maxlength="32">
+        <div class="meta"><span class="tag">${SRC[t.source] || ""}</span>${t.optional ? '<span class="tag opt">选做</span>' : ""}${t.category ? `<span class="tag">${esc(t.category)}</span>` : ""}${t.minutes_from === "history" ? '<span class="tag hist" title="按这类作业最近的实际用时调整">按历史用时</span>' : ""}${t.actual_s ? `<span class="tag real">实际 ${Math.max(1, Math.round(t.actual_s / 60))} 分钟</span>` : ""}${t.note ? `<span>${esc(t.note)}</span>` : ""}</div>
+      </div>
+      <label class="mins"><input type="number" min="1" max="180" value="${t.minutes}" data-f="minutes">分钟</label>
+      <select class="status" data-f="status">
+        ${[["todo", "待做"], ["doing", "进行中"], ["done", "已完成"]].map(([v, l]) => `<option value="${v}" ${t.status === v ? "selected" : ""}>${l}</option>`).join("")}
+      </select>
+      <span class="ops">
+        <button title="上移" data-move="-1">↑</button><button title="下移" data-move="1">↓</button>
+        <button class="del" title="删除" data-del>✕</button>
+      </span>
+    </div>`).join("");
+}
+
+async function refresh() {
+  if (editing || busy) return;
+  try { render(await api("/api/state")); setHealth(true); } catch { setHealth(false); }
+}
+function setHealth(ok) {
+  $("#health").textContent = ok ? "服务运行中" : "连不上服务";
+  $("#health").classList.toggle("bad", !ok);
+}
+
+$("#list").addEventListener("focusin", (e) => { if (e.target.dataset.f) editing = true; });
+$("#list").addEventListener("change", async (e) => {
+  const f = e.target.dataset.f, id = e.target.closest(".task")?.dataset.id;
+  if (!f || !id) return;
+  const v = f === "minutes" ? Number(e.target.value) : e.target.value;
+  editing = false;
+  render(await api(`/api/tasks/${id}`, json("PATCH", { [f]: v })));
+});
+$("#list").addEventListener("focusout", () => setTimeout(() => (editing = false), 200));
+$("#list").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
+$("#list").addEventListener("click", async (e) => {
+  const id = e.target.closest(".task")?.dataset.id;
+  if (!id) return;
+  if (e.target.dataset.move) render(await api(`/api/tasks/${id}/move`, json("POST", { delta: Number(e.target.dataset.move) })));
+  if ("del" in e.target.dataset) {
+    const t = state.tasks.find((x) => x.id === id);
+    if (confirm(`删除「${t.title}」？`)) render(await api(`/api/tasks/${id}`, { method: "DELETE" }));
+  }
+});
+$("#add").onclick = async () => {
+  const title = $("#new-title").value.trim();
+  if (!title) return $("#new-title").focus();
+  render(await api("/api/tasks", json("POST", { title, minutes: Number($("#new-min").value) || 15 })));
+  $("#new-title").value = "";
+};
+$("#new-title").addEventListener("keydown", (e) => e.key === "Enter" && $("#add").click());
+$("#clear").onclick = async () => { if (confirm("清空今天的全部作业？")) render(await api("/api/clear", { method: "POST" })); };
+
+// ---- screenshots ----
+const working = '<span class="working"><i></i><i></i><i></i></span>';
+async function sendShots(files) {
+  files = [...files].filter((f) => f.type.startsWith("image/")).slice(0, 6);
+  if (!files.length || busy) return;
+  busy = true;
+  $("#thumbs").innerHTML = files.map((f) => `<img src="${URL.createObjectURL(f)}">`).join("");
+  const st = $("#shot-status");
+  st.className = "status-line";
+  st.innerHTML = `${working}小机器人正在认真看截图，大约需要 10 秒…`;
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f, f.name || "paste.png"));
+  try {
+    const r = await api("/api/screenshots", { method: "POST", body: fd });
+    busy = false;
+    render(r.state);
+    st.textContent = r.added ? `✓ 加入了 ${r.added} 项作业（用时 ${r.seconds} 秒）${r.summary ? "：" + r.summary : ""}` : "截图里没有找到作业，换一张试试？";
+  } catch (err) {
+    busy = false;
+    st.className = "status-line err";
+    st.textContent = "识别失败：" + err.message;
+  }
+}
+const drop = $("#drop");
+drop.onclick = () => $("#file").click();
+$("#file").onchange = (e) => sendShots(e.target.files);
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); sendShots(e.dataTransfer.files); };
+document.addEventListener("paste", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  const imgs = [...e.clipboardData.items].filter((i) => i.type.startsWith("image/")).map((i) => i.getAsFile());
+  if (imgs.length) sendShots(imgs);
+});
+
+// ---- talk to the robot ----
+function bubble(cls, html) {
+  const b = document.createElement("div");
+  b.className = "bubble " + cls;
+  b.innerHTML = html;
+  $("#chat").append(b);
+  $("#chat").scrollTop = 1e6;
+  return b;
+}
+function showReply(r) {
+  const acts = [...r.applied.map((a) => "✓ " + describe(a)), ...r.refused.map((a) => "✕ 拒绝" + describe(a))].join("　");
+  bubble("bot", `${esc(r.reply)}<small>${acts || "没有改清单"} · ${r.timing.total} 秒</small>`);
+  if (r.audio) new Audio(`/api/audio/${r.audio}.wav`).play().catch(() => {});
+  refresh();
+}
+function describe(a) {
+  const t = state?.tasks.find((x) => x.id === a.id)?.title || a.title || "";
+  return ({ add: `新增「${t}」`, update: `修改「${t}」`, start: `开始「${t}」`, extend: `加 ${a.minutes} 分钟`, set: `改成 ${a.minutes} 分钟`, done: `完成「${t}」`, delete: `删除「${t}」` })[a.type] || a.type;
+}
+async function say() {
+  const text = $("#say").value.trim();
+  if (!text) return;
+  $("#say").value = "";
+  bubble("kid", esc(text));
+  const wait = bubble("bot", working);
+  $("#say-btn").disabled = true;
+  try { const r = await api("/api/simulate/text", json("POST", { text })); wait.remove(); showReply(r); }
+  catch (err) { wait.innerHTML = "出错了：" + esc(err.message); }
+  $("#say-btn").disabled = false;
+}
+$("#say-btn").onclick = say;
+$("#say").addEventListener("keydown", (e) => e.key === "Enter" && say());
+$("#audio").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const kid = bubble("kid", `🎙 ${esc(f.name)}`);
+  const wait = bubble("bot", working);
+  const fd = new FormData();
+  fd.append("file", f);
+  try {
+    const r = await api("/api/simulate/audio", { method: "POST", body: fd });
+    kid.innerHTML = `🎙 ${esc(r.transcript || "（没听清）")}<small>本机识别 · ${r.timing.asr ?? "-"} 秒</small>`;
+    wait.remove();
+    showReply(r);
+  } catch (err) { wait.innerHTML = "出错了：" + esc(err.message); }
+  e.target.value = "";
+};
+
+refresh();
+setInterval(refresh, 3000);
+// ---- voice log ----
+async function loadTurns() {
+  let r;
+  try { r = await api("/api/voicelog"); } catch { return; }
+  if (!r.turns.length) { $("#turns").innerHTML = '<div class="empty">还没有语音对话</div>'; return; }
+  $("#turns").innerHTML = r.turns.map((t) => {
+    const q = t.quality || {};
+    const ok = q.verdict === "录音正常";
+    const did = [...(t.applied || []).map((a) => "✓ " + describe(a)), ...(t.refused || []).map((a) => "✕ 拒绝" + describe(a))].join("　") || "没有改清单";
+    const raw = t.transcript_raw && t.transcript_raw !== t.transcript ? `<div class="raw">不转数字：${esc(t.transcript_raw)}</div>` : "";
+    return `<div class="turn">
+      <div class="top"><span>${esc(t.time.slice(5, 16))}</span><span>${q.seconds ?? "-"} 秒</span><span class="q ${ok ? "" : "bad"}">${esc(q.verdict || "")}</span></div>
+      <audio controls preload="none" src="/api/voicelog/${esc(t.id)}.wav"></audio>
+      <div class="heard">听到：「${esc(t.transcript || "（没听清）")}」</div>${raw}
+      ${t.heard ? `<div class="raw">交给 AI：${esc(t.heard)}${t.verbatim ? "（AI 改写了原话，已按原话记录）" : ""}</div>` : ""}
+      <div class="did">${did} → 回复：${esc(t.reply || "")}</div>
+      <div class="metrics">说话音量 ${q.speech_db ?? "-"} dB · 背景噪音 ${q.noise_db ?? "-"} dB · 信噪比 ${q.snr_db ?? "-"} dB · 削顶 ${q.clipped_pct ?? 0}%</div>
+    </div>`;
+  }).join("");
+}
+$("#log-refresh").onclick = loadTurns;
+// ---- phrase book ----
+function renderPhrases(items) {
+  $("#phrases").innerHTML = items.map((p) => `<div class="ph">
+    <span class="k ${p.kind}">${p.kind === "fix" ? "纠错" : "术语"}</span><b>${esc(p.text)}</b>
+    <span class="x">${p.kind === "fix" ? "常听成：" + esc((p.heard || []).join("、")) : esc(p.meaning || "")}</span>
+    <button data-ph="${esc(p.id)}" title="删除">✕</button></div>`).join("") || '<div class="empty">短语库是空的</div>';
+}
+async function loadPhrases() { try { renderPhrases((await api("/api/phrases")).items); } catch {} }
+$("#phrases").addEventListener("click", async (e) => {
+  const id = e.target.dataset.ph;
+  if (id && confirm("删除这条短语？")) renderPhrases((await api(`/api/phrases/${id}`, { method: "DELETE" })).items);
+});
+$("#ph-add").onclick = async () => {
+  const kind = $("#ph-kind").value, text = $("#ph-text").value.trim(), extra = $("#ph-extra").value.trim();
+  if (!text) return $("#ph-text").focus();
+  try {
+    const body = kind === "fix" ? { kind, text, heard: extra } : { kind, text, meaning: extra };
+    renderPhrases((await api("/api/phrases", json("POST", body))).items);
+    $("#ph-text").value = ""; $("#ph-extra").value = ""; $("#ph-status").textContent = "";
+  } catch (err) { $("#ph-status").className = "status-line err"; $("#ph-status").textContent = err.message; }
+};
+loadPhrases();
+async function loadSetup() {
+  try {
+    const s = await api("/api/setup");
+    const copy = (t) => `<button class="ghost" style="padding:1px 8px;font-size:12px" onclick="navigator.clipboard.writeText('${t}').then(()=>{this.textContent='已复制'})">复制</button>`;
+    $("#setup").innerHTML = (s.lan.length ? s.lan : ["没找到局域网地址（没连 Wi-Fi？）"]).map((u) => `设备服务地址：<b>${esc(u)}</b> ${s.lan.length ? copy(u) : ""}`).join("<br>")
+      + `<br>设备令牌：<b>${esc(s.token)}</b> ${copy(s.token)}`;
+  } catch { $("#setup").textContent = "读不到设置"; }
+}
+loadSetup();
+
+async function loadDurations() {
+  let r;
+  try { r = await api("/api/durations"); } catch { return; }
+  if (!r.categories.length) { $("#durations").innerHTML = '<div class="empty">还没有用时记录</div>'; return; }
+  $("#durations").innerHTML = `<table class="dur"><tr><th>作业类型</th><th>次数</th><th>最近平均</th><th>新作业时长</th><th>最近几次</th></tr>${
+    r.categories.map((c) => `<tr><td>${esc(c.category)}<br><small>${esc(c.subject)}</small></td><td>${c.count}</td>
+      <td>${c.avg_min} 分钟</td><td>${c.estimate ? c.estimate + " 分钟" : "<small>记录不够</small>"}</td>
+      <td>${c.recent.map((x) => `<small>${esc(x.day.slice(5))} ${esc(x.title)} · ${x.min} 分</small>`).join("<br>")}</td></tr>`).join("")}</table>`;
+}
+$("#dur-refresh").onclick = loadDurations;
+loadDurations();
+
+loadTurns();
+// Refresh every 15 s, but never while a recording is playing.
+setInterval(() => { if (![...document.querySelectorAll("#turns audio")].some((a) => !a.paused)) loadTurns(); }, 15000);
+
+</script>
+</body>
+</html>

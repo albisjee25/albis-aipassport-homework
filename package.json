@@ -1,0 +1,68 @@
+{
+  "name": "albis-aipassport-homework",
+  "version": "0.1.0",
+  "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
+  "author": "albis",
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek",
+    "harness",
+    "dsh",
+    "ai-passport",
+    "folotoy",
+    "homework",
+    "esp32"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "admin.html",
+    "lib",
+    "voice",
+    "locale",
+    "icon.svg",
+    "DEV-GUIDE.md",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "scripts/device-config.mjs"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "sherpa-onnx-node": "^2.0.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/albisjee25/albis-aipassport-homework.git"
+  },
+  "homepage": "https://github.com/albisjee25/albis-aipassport-homework#readme",
+  "bugs": {
+    "url": "https://github.com/albisjee25/albis-aipassport-homework/issues"
+  }
+}

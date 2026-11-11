@@ -1,0 +1,7 @@
+## Homework helper: find the parent's Mac on the home network by its Bonjour name.
+dependencies:
+  espressif/mdns: "1.14.1"
+  # Adding mdns makes the component manager re-solve every dependency. Hold the
+  # baseline's locked versions so this app does not silently move to newer ones.
+  lvgl/lvgl: "9.5.0"
+  espressif/cmake_utilities: "1.1.1"

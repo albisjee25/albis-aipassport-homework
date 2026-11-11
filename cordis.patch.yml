@@ -1,0 +1,11 @@
+# 把“作业助手”插入 Harness 的插件列表。设置（端口、模型、机器人声音等）在 Harness 的插件页改，
+# 也可以在 config 里写，例如：
+#   config:
+#     voice:
+#       provider: azure
+#       azureKey: 你的密钥
+#       azureRegion: eastasia
+- insert:
+    - id: homework-helper
+      name: 'albis-aipassport-homework'
+      config: {}

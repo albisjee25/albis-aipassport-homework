@@ -1,0 +1,9 @@
+node_modules/
+.DS_Store
+# 维护者本机说明，含个人路径
+MAINTAINER.local.md
+# 固件的连接配置含设备令牌；编译产物
+firmware/main/hw_secrets.h
+firmware/build/
+firmware/managed_components/
+*.tgz
