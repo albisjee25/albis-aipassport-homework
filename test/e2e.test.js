@@ -182,3 +182,20 @@ test('后台只接受本机访问的判断依据存在；坏路径返回 404', a
   assert.equal((await api('/api/nope')).status, 404)
   assert.equal((await api('/api/audio/../../etc/passwd.wav')).status, 404)
 })
+
+test('新设备配对：没有令牌被拒 → 申请 → 后台允许 → 领到令牌 → 能同步清单', async () => {
+  assert.equal((await api('/api/device/list')).status, 401)
+  const nonce = 'e2e-nonce-0123456789abc'
+  assert.equal((await api('/api/pair/request', { method: 'POST', body: JSON.stringify({ code: '7788', nonce }) })).status, 200)
+  const pend = await api('/api/pair/pending')
+  assert.deepEqual(pend.body.pending.map((x) => x.code), ['7788'])
+  assert.ok(!JSON.stringify(pend.body).includes(nonce), '后台看不到 nonce')
+  assert.equal((await api('/api/info')).body.pairing, 1)
+  const wait = await api('/api/pair/poll', { method: 'POST', body: JSON.stringify({ nonce }) })
+  assert.equal(wait.body.status, 'waiting')
+  await api('/api/pair/approve', { method: 'POST', body: JSON.stringify({ code: '7788' }) })
+  const got = await api('/api/pair/poll', { method: 'POST', body: JSON.stringify({ nonce }) })
+  assert.equal(got.body.status, 'approved')
+  const list = await api('/api/device/list', { headers: { 'X-Device-Token': got.body.token } })
+  assert.equal(list.status, 200)
+})

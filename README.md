@@ -16,8 +16,9 @@ Everything runs on your own computer inside DeepSeek Harness: the plugin uses th
 
 1. Install the plugin from the Harness plugin market (search `albis-aipassport-homework`), or run
    `dsh plugin --profile desktop add albis-aipassport-homework`, then restart Harness.
-2. Install the homework firmware on the device. Open the plugin page, click “修改设备设置或刷机” and ask the agent to install the firmware for the first time. It follows `DEV-GUIDE.md`: clones `firmware/` from this repository, writes this computer's connection settings with `scripts/device-config.mjs`, builds, and flashes **only after you confirm**. The firmware embeds your computer's name and device token, so every household builds its own.
-3. The plugin page shows the device as online and the robot's head lamp turns red.
+2. Install the homework firmware on the device: flash it from the FoloToy AI Passport community page, or open the plugin page, click “修改设备设置或刷机” and ask the agent to build and flash `firmware/` (it asks before flashing). The same firmware works for every household.
+3. Set up Wi-Fi with the “蓝牙配网” mini program. The device then shows a **4-digit pairing code**; the parent dashboard (`http://127.0.0.1:8787`) shows the same code. Check they match and click “允许”. The computer gives this device its own token, which it keeps; later boots connect by themselves. Click “拒绝” for a device you do not know.
+4. The plugin page shows the device as online and the robot's head lamp turns red.
 
 ## Updates
 
@@ -32,7 +33,8 @@ The plugin market shows an update when a new version is published to npm. Firmwa
 | `admin.html` | Parent dashboard at `http://127.0.0.1:8787` |
 | `DEV-GUIDE.md` | Guide the Harness agent reads (tool `homework_dev_guide`) before customising or flashing |
 | `firmware/` | Device firmware, based on [FoloToy/ai-passport](https://github.com/FoloToy/ai-passport) (MIT). Not included in the npm package |
-| `scripts/device-config.mjs` | Writes `firmware/main/hw_secrets.h` (computer name, fallback IP, port, device token) |
+| `lib/pairing.js` | Device pairing: LAN discovery (UDP 8788), pairing code, per-device tokens |
+| `scripts/device-config.mjs` | Optional, for development: bakes the computer name and token into a firmware build (not needed for normal installs) |
 
 ## License
 

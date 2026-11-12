@@ -1,5 +1,6 @@
 // main/hw_secrets.example.h - placeholder used when main/hw_secrets.h is absent
-// (for example in CI). Generate the real file on the parent's Mac with:
+// (CI, community builds). Normal devices do NOT need a hw_secrets.h: they find the Mac
+// by broadcast and pair with it. For development only, bake in a name + token with:
 //   homework-helper/.venv/bin/python homework-helper/tools/gen_device_config.py <this checkout>
 // main/hw_secrets.h is git-ignored: it holds the device token.
 #pragma once

@@ -8,6 +8,7 @@ import { Homework } from './lib/app.js'
 import { ASR, ensureModel, modelReady } from './lib/asr.js'
 import { Brain } from './lib/llm.js'
 import { migrate } from './lib/migrate.js'
+import { Pairing } from './lib/pairing.js'
 import { startServer } from './lib/server.js'
 import { registerTools } from './lib/tools.js'
 import { Voice } from './lib/voice.js'
@@ -115,8 +116,9 @@ export async function apply(ctx, config = {}) {
   const hw = new Homework({ dataDir, brain, voice, asr, log: logger })
 
   const getInfo = () => ({ port: cfg.port, voice: voice.provider, asrReady: modelReady(modelDir) && Boolean(asr.rec), asrNote: state.asrNote || '启动中' })
+  const pairing = new Pairing({ file: join(dataDir, 'devices.json'), legacyToken: token, log: logger }).startDiscovery(cfg.port)
   const server = await startServer({
-    hw, token, port: cfg.port, host: cfg.host, log: logger, getVoiceName: () => voice.provider, getInfo,
+    hw, token, pairing, port: cfg.port, host: cfg.host, log: logger, getVoiceName: () => voice.provider, getInfo,
   })
   logger.info(`[homework] 作业助手已启动：http://127.0.0.1:${cfg.port}（设备令牌见 ${join(dataDir, 'device_token')}）`)
 

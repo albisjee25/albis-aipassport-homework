@@ -572,6 +572,7 @@ static void app_task(void *arg) {
     (void)arg;
     int64_t next_battery = 0;
     hw_net_state_t shown_net = (hw_net_state_t)-1;
+    char shown_code[5] = "";
     msg_t m;
     for (;;) {
         int wait = hw_talk_state() == HW_TALK_LISTENING ? 80 : TICK_MS;   // smoother level meter
@@ -588,8 +589,19 @@ static void app_task(void *arg) {
                 s_page == HW_PAGE_LIST) {
                 hw_sound_play(HW_CHIRP_HELLO, HW_NO_VOICE);
             }
+            if (shown_net == HW_NET_PAIRING && st != HW_NET_PAIRING) {
+                hw_ui_toast_hide();                 // paired (or the Mac vanished): drop the code
+                shown_code[0] = '\0';
+                if (st != HW_NET_ONLINE) hw_ui_toast("已连接电脑", 2000);
+            }
             shown_net = st;
             hw_ui_set_net(st);
+        }
+        if (st == HW_NET_PAIRING && strcmp(shown_code, hw_net_pair_code()) != 0) {
+            snprintf(shown_code, sizeof shown_code, "%s", hw_net_pair_code());
+            char msg[64];
+            snprintf(msg, sizeof msg, "配对码 %s\n请在电脑后台点“允许”", shown_code);
+            hw_ui_toast(msg, 0);                    // stays up until paired
         }
         if (now >= next_battery) {
             hw_ui_set_battery(bsp_battery_soc());

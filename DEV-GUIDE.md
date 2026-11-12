@@ -37,7 +37,8 @@
 | `lib/asr.js` | 本机语音识别（SenseVoice） |
 | `lib/voice.js`、`voice/` | 机器人的声音：`chirp.js` 哔嘟声（默认）、`azure.js` 微软语音示例；接入方法见 `voice/README.md` |
 | `lib/tools.js` | 你在对话里能用的作业工具（`homework_list`、`homework_status`、`homework_dev_guide` 等） |
-| `scripts/device-config.mjs` | 生成固件的连接配置 `main/hw_secrets.h`（电脑名、备用 IP、端口、令牌） |
+| `lib/pairing.js` | 新设备配对：局域网发现（UDP 8788）、配对码、发设备令牌（存 `devices.json`） |
+| `scripts/device-config.mjs` | 可选：给开发调试用的固件写死电脑名和令牌（`main/hw_secrets.h`）。正常安装不需要，设备靠配对连接 |
 | `test/` | 测试，改完运行 `npm test`（只在源码仓库里有） |
 
 改完插件后：运行 `npm test` 全部通过，再请家长**重启 DeepSeek Harness** 才会生效。从插件市场装的插件，直接改安装目录里的文件会在下次更新时被覆盖；要长期改，请在源码仓库里改。
@@ -60,15 +61,14 @@
 
 1. 先调用 `homework_status` 看服务、语音识别、声音状态（注意：它的结果里有设备令牌，不要把令牌复述给家长）。
 2. 读 `http://127.0.0.1:8787/api/info` 的 `device` 一项：`online` 是否在线、`last_seen_s` 多久没联系、`rejected` 是否有令牌不对被拒绝。
-3. 常见原因：设备和电脑不在同一个 2.4G Wi-Fi；电脑换了 IP 或改了电脑名（重新生成连接配置并刷机）；固件里的令牌和 `~/.dsh/homework-helper/device_token` 不一致；端口 8787 被别的程序占用（`lsof -i :8787` 可查）。
+3. 常见原因：设备和电脑不在同一个 2.4G Wi-Fi；Mac 防火墙拦了 Node 的连入（系统设置 > 网络 > 防火墙，允许 DeepSeek Harness / Node）；端口 8787 或 8788（设备发现，UDP）被别的程序占用（`lsof -i :8787`、`lsof -i UDP:8788` 可查）；设备屏幕上显示“配对码”说明还没配对，让家长在家长后台点“允许”。设备令牌被电脑拒绝 3 次后，设备会自己重新配对，不用刷机。
 4. 设备没配过网：开机后长按 ▲ 进入配网，用“蓝牙配网-FoloToy AI PASSPORT”小程序配网。
 
 ### 修改设备设置或功能、刷机
 
 1. **先读官方资料**（见下一节），尤其是固件目录里的 `AGENTS.md`、`docs/README.md`、`docs/development/ai-guide.zh_CN.md`，以及 `skills/` 下的 `passport-*` Skill（环境、开发、构建、调试、设备测试），按官方说明安装这些 Skill。
-2. **生成连接配置**（第一次编译前必须做，电脑换了网络或名字后也要重做）：
-   `node <插件目录>/scripts/device-config.mjs <固件目录>`
-   它把电脑名、备用 IP、端口和设备令牌写进 `main/hw_secrets.h`。这个文件不进 git，里面有令牌，不要打印内容。
+2. **设备怎么连电脑**：固件不写电脑名和令牌，靠配对：设备开机后用局域网广播找到装了本插件的电脑，屏幕显示 4 位配对码，家长后台同时弹出同样的配对码，家长核对后点“允许”，电脑才给这台设备发专属令牌，设备存在自己的存储里。所以**编译前不需要生成任何连接配置**，不同家庭可以用同一份固件。
+   只有开发调试想绕过配对时，才用 `node <插件目录>/scripts/device-config.mjs <固件目录>` 生成 `main/hw_secrets.h`（写死电脑名和令牌，不进 git，不要打印内容，也不要把这样编出的固件发给别人）。
 3. 作业助手相关代码都是 `main/hw_*.c`；界面在 `hw_ui.c`，机器人像素图由 `assets/images/homework/gen_robot_art.py` 生成（不要手改 `hw_robot_art.c`）。
 4. 改界面可以先用电脑预览，不用刷机：`bash tools/ui_preview/preview.sh`，结果在 `build/ui_preview/frames/index.html`。
 5. 构建环境：ESP-IDF v5.5.3（官方说明见 `docs/`）。没有时按官方文档安装；国内网络可用乐鑫的国内镜像。
@@ -80,7 +80,7 @@
 6. 刷机（**先得到家长同意**）。设备串口用 `ls /dev/cu.usbmodem*`（macOS）查：
    - **已经装过作业助手、只是更新**：只刷程序区，保留设备里的 Wi-Fi 设置，刷完不用重新配网：
      `python -m esptool --chip esp32c3 -p <串口> -b 460800 write_flash 0x10000 build/FoloToy-AI-Passport.bin`
-   - **第一次装作业助手**：从 0x0 写入整个合并固件 `build/FoloToy-AI-Passport-full.bin`（也可以用官方网页刷机工具），会覆盖设备全部内容。刷完设备会进入配网，用“蓝牙配网-FoloToy AI PASSPORT”小程序配网（只支持 2.4G Wi-Fi）。
+   - **第一次装作业助手**：从 0x0 写入整个合并固件 `build/FoloToy-AI-Passport-full.bin`（也可以用官方网页刷机工具），会覆盖设备全部内容。刷完设备会进入配网，用“蓝牙配网-FoloToy AI PASSPORT”小程序配网（只支持 2.4G Wi-Fi）；配网成功后设备屏幕显示配对码，到家长后台点“允许”即可。
 7. 已知问题：清单页 ▲ 键偶尔不灵（按键电压判断的问题，原因待确认）。
 
 ## 官方硬件开发资料（AI Passport / FoloToy）
