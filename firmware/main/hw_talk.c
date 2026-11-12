@@ -106,7 +106,6 @@ static bool parse(char *audio_id, size_t audio_len) {
             copy_str(d->subject, sizeof d->subject, cJSON_GetObjectItem(t, "subject"));
             cJSON *m = cJSON_GetObjectItem(t, "minutes");
             d->minutes = cJSON_IsNumber(m) && m->valueint > 0 ? (uint16_t)m->valueint : 20;
-            d->optional = cJSON_IsTrue(cJSON_GetObjectItem(t, "optional"));
             d->status = status_of(cJSON_GetStringValue(cJSON_GetObjectItem(t, "status")));
             s_res->list.count++;
         }

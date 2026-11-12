@@ -17,29 +17,17 @@ int hw_list_find(const hw_list_t *l, const char *id) {
     return -1;
 }
 
-int hw_list_required(const hw_list_t *l) {
+int hw_list_done_count(const hw_list_t *l) {
     int n = 0;
-    for (int i = 0; i < l->count; i++) n += !l->tasks[i].optional;
+    for (int i = 0; i < l->count; i++) n += l->tasks[i].status == HW_ST_DONE;
     return n;
 }
 
-int hw_list_required_done(const hw_list_t *l) {
-    int n = 0;
-    for (int i = 0; i < l->count; i++) {
-        n += !l->tasks[i].optional && l->tasks[i].status == HW_ST_DONE;
-    }
-    return n;
-}
-
-bool hw_list_all_required_done(const hw_list_t *l) {
-    int req = hw_list_required(l);
-    return req > 0 && hw_list_required_done(l) == req;
+bool hw_list_all_done(const hw_list_t *l) {
+    return l->count > 0 && hw_list_done_count(l) == l->count;
 }
 
 int hw_list_next_todo(const hw_list_t *l) {
-    for (int i = 0; i < l->count; i++) {
-        if (!l->tasks[i].optional && l->tasks[i].status != HW_ST_DONE) return i;
-    }
     for (int i = 0; i < l->count; i++) {
         if (l->tasks[i].status != HW_ST_DONE) return i;
     }

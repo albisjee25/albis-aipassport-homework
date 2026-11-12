@@ -64,13 +64,12 @@ static void shot(const char *title, const char *note) {
 
 // ---- sample data ---------------------------------------------------------------------
 static hw_task_t task(const char *id, const char *title, const char *subject, int minutes,
-                      bool optional, hw_status_t st) {
+                      hw_status_t st) {
     hw_task_t t = { 0 };
     hw_utf8_copy(t.id, sizeof t.id, id);
     hw_utf8_copy(t.title, sizeof t.title, title);
     hw_utf8_copy(t.subject, sizeof t.subject, subject);
     t.minutes = (uint16_t)minutes;
-    t.optional = optional;
     t.status = st;
     return t;
 }
@@ -79,12 +78,12 @@ static hw_list_t sample_list(void) {
     hw_list_t l;
     hw_list_init(&l);
     l.version = 7;
-    l.tasks[l.count++] = task("a1", "订正今天的小测卷", "数学", 15, false, HW_ST_DONE);
-    l.tasks[l.count++] = task("a2", "练习册P34-35", "数学", 25, false, HW_ST_TODO);
-    l.tasks[l.count++] = task("a3", "复习83、84、85和第9页的关于月份的单词", "英语", 15, false, HW_ST_TODO);
-    l.tasks[l.count++] = task("a4", "抄写第16课生字词，每个2遍", "语文", 20, false, HW_ST_TODO);
-    l.tasks[l.count++] = task("a5", "活动1、2英译中", "英语", 10, false, HW_ST_TODO);
-    l.tasks[l.count++] = task("a6", "课外阅读30分钟", "其他", 30, true, HW_ST_TODO);
+    l.tasks[l.count++] = task("a1", "订正今天的小测卷", "数学", 15, HW_ST_DONE);
+    l.tasks[l.count++] = task("a2", "练习册P34-35", "数学", 25, HW_ST_TODO);
+    l.tasks[l.count++] = task("a3", "复习83、84、85和第9页的关于月份的单词", "英语", 15, HW_ST_TODO);
+    l.tasks[l.count++] = task("a4", "抄写第16课生字词，每个2遍", "语文", 20, HW_ST_TODO);
+    l.tasks[l.count++] = task("a5", "活动1、2英译中", "英语", 10, HW_ST_TODO);
+    l.tasks[l.count++] = task("a6", "课外阅读30分钟", "其他", 30, HW_ST_TODO);
     return l;
 }
 
@@ -127,6 +126,10 @@ int main(int argc, char **argv) {
     hw_ui_robot(HW_MOOD_IDLE);
     hw_ui_set_list(&empty, 0);
     shot("清单 · 还没有作业", "");
+    hw_ui_set_empty(true);
+    hw_ui_set_list(&empty, 0);
+    shot("清单 · 今天全部完成", "");
+    hw_ui_set_empty(false);
 
     hw_list_t l = sample_list();
     hw_ui_set_list(&l, 1);
@@ -189,10 +192,25 @@ int main(int argc, char **argv) {
     shot("到点 · 选中“再来 5 分钟”", "");
 
     // ---- done / confirm
+    hw_list_t all = sample_list();
+    for (int i = 0; i < all.count; i++) all.tasks[i].status = HW_ST_DONE;
+    hw_ui_set_done(&all);
     hw_ui_show(HW_PAGE_DONE);
     hw_ui_robot(HW_MOOD_HAPPY);
-    hw_ui_set_done(5);
-    shot("全部完成", "8 秒后回到清单");
+    // The sweep: robot drives down in a zig-zag, one card per row, then confetti and the title.
+    shot("庆祝 · 0.0 秒", "最后一项做完：5 张已完成的卡片出现，机器人在上方");
+    run(700);
+    shot("庆祝 · 清扫第 1 行", "机器人开到第 1 行，滚刷向右扫，卡片被推出屏幕，滚刷处飞出彩屑");
+    run(900);
+    shot("庆祝 · 清扫第 2 行", "到屏幕边缘下一行，掉头向左扫");
+    run(1200);
+    shot("庆祝 · 清扫第 4 行", "");
+    run(1200);
+    shot("庆祝 · 扫最后一行", "");
+    run(700);
+    shot("庆祝 · 回到原位撒彩屑", "卡片全部清空，机器人跳起，标题出现");
+    run(1500);
+    shot("全部完成", "庆祝结束后停在这里，10 秒后回到清单");
     hw_ui_show(HW_PAGE_CONFIRM);
     hw_ui_robot(HW_MOOD_THINK);
     shot("重新配网确认", "清单页长按 ▲ 进入");

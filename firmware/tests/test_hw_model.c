@@ -7,12 +7,11 @@
 
 #define MIN (60 * 1000LL)
 
-static hw_task_t task(const char *id, bool optional, hw_status_t st) {
+static hw_task_t task(const char *id, hw_status_t st) {
     hw_task_t t = { 0 };
     strcpy(t.id, id);
     strcpy(t.title, id);
     t.minutes = 10;
-    t.optional = optional;
     t.status = st;
     return t;
 }
@@ -21,20 +20,21 @@ static void test_list_helpers(void) {
     hw_list_t l;
     hw_list_init(&l);
     assert(l.version == -1 && hw_list_next_todo(&l) == -1);
-    assert(!hw_list_all_required_done(&l));          // empty list is not "all done"
-    l.tasks[l.count++] = task("a1", false, HW_ST_DONE);
-    l.tasks[l.count++] = task("b2", true, HW_ST_TODO);
-    l.tasks[l.count++] = task("c3", false, HW_ST_TODO);
+    assert(!hw_list_all_done(&l));                   // empty list is not "all done"
+    l.tasks[l.count++] = task("a1", HW_ST_DONE);
+    l.tasks[l.count++] = task("b2", HW_ST_TODO);
+    l.tasks[l.count++] = task("c3", HW_ST_TODO);
     assert(hw_list_find(&l, "c3") == 2 && hw_list_find(&l, "zz") == -1 && hw_list_find(&l, NULL) == -1);
-    assert(hw_list_required(&l) == 2 && hw_list_required_done(&l) == 1);
-    assert(hw_list_next_todo(&l) == 2);               // required before optional
+    assert(hw_list_done_count(&l) == 1 && !hw_list_all_done(&l));
+    assert(hw_list_next_todo(&l) == 1);
+    l.tasks[1].status = HW_ST_DONE;
     l.tasks[2].status = HW_ST_DONE;
-    assert(hw_list_all_required_done(&l));
-    assert(hw_list_next_todo(&l) == 1);               // then the optional one
+    assert(hw_list_all_done(&l));                    // every task counts, none is optional
+    assert(hw_list_next_todo(&l) == -1);
 
     hw_list_t in = l;
     assert(!hw_list_has_new_ids(&l, &in));
-    in.tasks[in.count++] = task("d4", false, HW_ST_TODO);
+    in.tasks[in.count++] = task("d4", HW_ST_TODO);
     assert(hw_list_has_new_ids(&l, &in));
 }
 

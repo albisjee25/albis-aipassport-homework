@@ -9,6 +9,8 @@ idf_component_register(
          "hw_sound.c"
          "hw_ui.c"
          "hw_talk.c"
+         "hw_diag.c"
+         "hw_sweep.c"
          "hw_robot_art.c"
     INCLUDE_DIRS "."
     REQUIRES bsp bt esp_event esp_http_client esp_hw_support esp_netif esp_timer esp_wifi

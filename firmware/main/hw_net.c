@@ -1,5 +1,6 @@
 // main/hw_net.c - see hw_net.h.
 #include "hw_net.h"
+#include "hw_diag.h"   // DIAG(power)
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -149,6 +150,7 @@ static bool discover_mac(void) {
     bool found = false;
     for (int i = 0; i < 3 && !found; i++) {
         sendto(fd, "HWH?", 4, 0, (struct sockaddr *)&to, sizeof to);
+        hw_diag_net_broadcast();   // DIAG(power)
         char buf[24];
         struct sockaddr_in from;
         socklen_t flen = sizeof from;
@@ -217,6 +219,7 @@ static int request(esp_http_client_method_t method, const char *path, const char
     int64_t t_start = esp_timer_get_time();
     esp_err_t err = esp_http_client_perform(c);
     int status = err == ESP_OK ? esp_http_client_get_status_code(c) : -1;
+    hw_diag_net_request((int)((esp_timer_get_time() - t_start) / 1000), err == ESP_OK);   // DIAG(power)
     // On a 401 without a WWW-Authenticate header the HTTP client fails with ESP_ERR_NOT_SUPPORTED
     // instead of reporting the status: read it ourselves so "token refused" is detected.
     if (err == ESP_ERR_NOT_SUPPORTED && esp_http_client_get_status_code(c) == 401) status = 401;
@@ -258,7 +261,6 @@ static bool parse_list(void) {
             hw_utf8_copy(dst->subject, sizeof dst->subject, cJSON_GetStringValue(cJSON_GetObjectItem(t, "subject")));
             cJSON *m = cJSON_GetObjectItem(t, "minutes");
             dst->minutes = cJSON_IsNumber(m) && m->valueint > 0 ? (uint16_t)m->valueint : 20;
-            dst->optional = cJSON_IsTrue(cJSON_GetObjectItem(t, "optional"));
             dst->status = parse_status(cJSON_GetStringValue(cJSON_GetObjectItem(t, "status")));
             s_incoming->count++;
         }

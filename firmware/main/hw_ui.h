@@ -40,7 +40,11 @@ void hw_ui_set_list(const hw_list_t *list, int selected);
 void hw_ui_set_edit(int minutes);
 void hw_ui_set_timer(const char *title, const hw_timer_t *timer);
 void hw_ui_set_alert(const char *title, int choice);   // 0 = done, 1 = five more minutes
-void hw_ui_set_done(int finished);
+// Everything finished: the robot sweeps the done tasks off the screen, then the title shows.
+// Call before hw_ui_show(HW_PAGE_DONE), which starts the animation.
+void hw_ui_set_done(const hw_list_t *list);
+// What the empty list page says: "no homework yet" or "all of today's homework is done".
+void hw_ui_set_empty(bool all_done);
 void hw_ui_set_setup(const char *status);
 
 void hw_ui_set_net(hw_net_state_t state);

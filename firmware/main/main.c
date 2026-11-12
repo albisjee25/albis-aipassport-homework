@@ -35,6 +35,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "hw_model.h"
+#include "hw_diag.h"   // DIAG(power)
 #include "hw_net.h"
 #include "hw_provision.h"
 #include "hw_sound.h"
@@ -50,7 +51,7 @@ static const char *TAG = "homework";
 #define BATTERY_EVERY_MS   (30 * 1000)
 #define ALERT_REPEAT_MS    (60 * 1000)
 #define ALERT_REPEATS      3
-#define DONE_PAGE_MS       (8 * 1000)
+#define DONE_PAGE_MS       (10 * 1000)   // the sweep takes about 5 s, then the title stays a while
 #define NVS_NS             "homework"
 #define NVS_KEY_LIST       "list"
 
@@ -66,6 +67,7 @@ static volatile bool s_input_ready;
 
 // ---- app state (app task only, except s_pending which the net task fills) ----------
 static hw_list_t s_list;
+static bool s_cleared;          // today's homework was all done and cleared: the empty list says so
 static hw_list_t *s_pending;            // heap: normal mode only (Wi-Fi setup needs the RAM)
 static hw_list_t *s_scratch;
 static SemaphoreHandle_t s_pending_lock;
@@ -182,6 +184,7 @@ static const char *timer_title(void) {
 }
 
 static void show_list(void) {
+    hw_ui_set_empty(s_cleared);
     if (s_sel >= s_list.count) s_sel = s_list.count ? s_list.count - 1 : 0;
     s_page = HW_PAGE_LIST;
     hw_ui_set_list(&s_list, s_sel);
@@ -225,10 +228,10 @@ static void finish_current(void) {
     hw_timer_reset(&s_timer);
     set_local_status(id, HW_ST_DONE);
     hw_net_post_event(id, "done", worked_s);
-    if (hw_list_all_required_done(&s_list)) {
+    if (hw_list_all_done(&s_list)) {
         s_page = HW_PAGE_DONE;
         s_done_since_ms = now_ms();
-        hw_ui_set_done(hw_list_required_done(&s_list));
+        hw_ui_set_done(&s_list);
         hw_ui_show(HW_PAGE_DONE);
         hw_ui_robot(HW_MOOD_HAPPY);
         hw_sound_play(HW_CHIRP_HAPPY, HW_VOICE_ALLDONE);
@@ -296,6 +299,7 @@ static void merge_list(const hw_list_t *src, bool announce) {
         }
     }
     s_list = *in;
+    if (s_list.count > 0) s_cleared = false;
     s_synced_once = true;
     cache_save();
 
@@ -313,6 +317,19 @@ static void merge_list(const hw_list_t *src, bool announce) {
     } else if (s_page == HW_PAGE_TIMER || s_page == HW_PAGE_ALERT) {
         if (s_timer.phase == HW_T_IDLE) show_list();
     }
+}
+
+// The celebration is over: the device clears its own list and tells the Mac to archive the
+// day. If the Mac is away the event waits in the queue and is delivered later.
+static void leave_done_page(void) {
+    if (hw_list_all_done(&s_list)) {
+        hw_net_post_event("", "clear", -1);
+        s_list.count = 0;               // keep s_list.version: the Mac's list has not changed yet
+        s_cleared = true;
+        s_sel = 0;
+        cache_save();
+    }
+    show_list();
 }
 
 static void apply_new_list(void) {
@@ -502,7 +519,7 @@ static void on_key_event(bsp_btn_t btn, bsp_btn_ev_t ev) {
         }
         break;
     case HW_PAGE_DONE:
-        if (click || lng) show_list();
+        if (click || lng) leave_done_page();
         break;
     case HW_PAGE_CONFIRM:
         if (click && btn == BSP_BTN_OK) {
@@ -551,7 +568,7 @@ static void on_tick(int64_t now) {
             hw_sound_play(HW_CHIRP_WORRIED, HW_VOICE_TIMEUP);
         }
     } else if (s_page == HW_PAGE_DONE) {
-        if (now - s_done_since_ms >= DONE_PAGE_MS) show_list();
+        if (now - s_done_since_ms >= DONE_PAGE_MS) leave_done_page();
     }
     if (s_edit_id[0] && now - s_edit_last_ms >= EDIT_IDLE_SAVE_MS) edit_save();
 
@@ -716,5 +733,6 @@ void app_main(void) {
     }
     s_input_ready = true;
     log_heap("ready");
+    hw_diag_start();   // DIAG(power)
     ESP_LOGI(TAG, "ready: %d cached tasks, version %d", s_list.count, (int)s_list.version);
 }

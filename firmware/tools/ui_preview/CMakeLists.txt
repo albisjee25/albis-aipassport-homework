@@ -16,7 +16,9 @@ add_executable(hw_ui_preview
     ${CMAKE_CURRENT_LIST_DIR}/preview_main.c
     ${FW}/main/hw_ui.c
     ${FW}/main/hw_model.c
+    ${FW}/main/hw_sweep.c
     ${FW}/main/hw_robot_art.c
+    ${CMAKE_CURRENT_LIST_DIR}/stubs/hw_diag_stub.c
     ${FW}/assets/fonts/homework/hw_font_18.c
     ${FW}/assets/fonts/homework/hw_font_24.c
     ${FW}/assets/fonts/homework/hw_font_48.c

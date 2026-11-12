@@ -348,12 +348,15 @@ function render(s) {
   state = s;
   const d = new Date(s.day + "T00:00:00");
   $("#day").textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · 星期${"日一二三四五六"[d.getDay()]}`;
-  const required = s.tasks.filter((t) => !t.optional);
-  const done = required.filter((t) => t.status === "done").length;
-  $("#progress-text").innerHTML = required.length ? `完成 <b>${done} / ${required.length}</b>` : "今天还没有作业";
-  $("#bar").style.width = required.length ? `${(done / required.length) * 100}%` : "0";
-  const left = s.tasks.filter((t) => t.status !== "done" && !t.optional).reduce((a, t) => a + t.minutes, 0);
-  $("#minutes-left").textContent = left ? `剩余约 ${left} 分钟` : "";
+  // 设备庆祝完会把做完的作业清走并存档，所以“今天”要把清单里的和已存档的合起来看。
+  const arch = s.archived || { count: 0, actual_min: 0 };
+  const done = s.tasks.filter((t) => t.status === "done").length + arch.count;
+  const total = s.tasks.length + arch.count;
+  $("#progress-text").innerHTML = !total ? "今天还没有作业" : done === total ? `今天的作业全部完成 <b>${total} 项</b>` : `完成 <b>${done} / ${total}</b>`;
+  $("#bar").style.width = total ? `${(done / total) * 100}%` : "0";
+  const left = s.tasks.filter((t) => t.status !== "done").reduce((a, t) => a + t.minutes, 0);
+  const used = Math.round((arch.actual_min + s.tasks.reduce((a, t) => a + (t.actual_s || 0), 0) / 60) * 10) / 10;
+  $("#minutes-left").textContent = [used ? `已用时 ${used} 分钟` : "", left ? `剩余约 ${left} 分钟` : ""].filter(Boolean).join(" · ");
   $("#drop").classList.toggle("compact", s.tasks.length > 0);
   if (!s.tasks.length) { $("#list").innerHTML = ""; return; }
   $("#list").innerHTML = s.tasks.map((t, i) => `
@@ -362,7 +365,7 @@ function render(s) {
       <span class="subj ${esc(t.subject)}">${SUBJ[t.subject] || "其"}</span>
       <div class="tw">
         <input class="title" value="${esc(t.title)}" data-f="title" maxlength="32">
-        <div class="meta"><span class="tag">${SRC[t.source] || ""}</span>${t.optional ? '<span class="tag opt">选做</span>' : ""}${t.category ? `<span class="tag">${esc(t.category)}</span>` : ""}${t.minutes_from === "history" ? '<span class="tag hist" title="按这类作业最近的实际用时调整">按历史用时</span>' : ""}${t.actual_s ? `<span class="tag real">实际 ${Math.max(1, Math.round(t.actual_s / 60))} 分钟</span>` : ""}${t.note ? `<span>${esc(t.note)}</span>` : ""}</div>
+        <div class="meta"><span class="tag">${SRC[t.source] || ""}</span>${t.category ? `<span class="tag">${esc(t.category)}</span>` : ""}${t.minutes_from === "history" ? '<span class="tag hist" title="按这类作业最近的实际用时调整">按历史用时</span>' : ""}${t.actual_s ? `<span class="tag real">实际 ${Math.max(1, Math.round(t.actual_s / 60))} 分钟</span>` : ""}${t.note ? `<span>${esc(t.note)}</span>` : ""}</div>
       </div>
       <label class="mins"><input type="number" min="1" max="180" value="${t.minutes}" data-f="minutes">分钟</label>
       <select data-f="status">
@@ -571,6 +574,7 @@ async function loadDurations() {
       <td class="recent recent-col">${c.recent.map((x) => `<div title="${esc(x.title)}">${esc(x.day.slice(5))} ${esc(x.title)} · ${x.min} 分</div>`).join("")}</td></tr>`).join("")}</table>`;
 }
 $("#dur-refresh").onclick = loadDurations;
+
 
 showTab(location.hash === "#stats" ? "stats" : "today");
 loadTurns();

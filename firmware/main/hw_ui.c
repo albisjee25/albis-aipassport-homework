@@ -10,7 +10,9 @@
 #include <string.h>
 
 #include "bsp_display.h"
+#include "hw_diag.h"   // DIAG(power)
 #include "hw_robot_art.h"
+#include "hw_sweep.h"
 #include "lvgl.h"
 #include "esp_timer.h"   // DIAG(keys)
 #include "esp_rom_sys.h"   // DIAG(keys)
@@ -61,8 +63,13 @@ static lv_obj_t *s_list_empty, *s_rows[ROWS_VISIBLE], *s_row_badge[ROWS_VISIBLE]
 static lv_obj_t *s_t_title, *s_t_clock, *s_t_bar, *s_t_state;
 // alert
 static lv_obj_t *s_a_title, *s_a_btn[2];
-// done / setup / confirm
-static lv_obj_t *s_d_text, *s_s_status;
+// done: finished task cards the robot sweeps away, confetti, then the title
+static lv_obj_t *s_d_title, *s_d_text, *s_s_status;
+static lv_obj_t *s_dc[HW_SWEEP_MAX], *s_dc_badge[HW_SWEEP_MAX], *s_dc_char[HW_SWEEP_MAX],
+                *s_dc_title[HW_SWEEP_MAX];
+static lv_obj_t *s_conf[HW_SWEEP_PARTICLES];
+static hw_sweep_geo_t s_geo;
+static int s_sweep_n;      // cards on the done page
 
 static lv_obj_t *label(lv_obj_t *parent, const lv_font_t *font, uint32_t color) {
     lv_obj_t *l = lv_label_create(parent);
@@ -116,9 +123,7 @@ static void set_eyes(hw_eye_t l, hw_eye_t r, int dx, int dy) {
 static void battery_draw(bool blink_phase);
 static void robot_place(void);
 
-static void robot_tick(lv_timer_t *t) {
-    (void)t;
-    s_robot_tick++;
+static void robot_draw(void) {
     uint32_t k = s_robot_tick;
     bool lamp_on = true;
     int roller = 0;
@@ -165,22 +170,49 @@ static void robot_tick(lv_timer_t *t) {
     battery_draw((k / 5) % 2);
 }
 
+static void robot_tick(lv_timer_t *t) {
+    (void)t;
+    s_robot_tick++;
+    robot_draw();
+}
+
 static lv_obj_t *image_at(const lv_image_dsc_t *src) {
     lv_obj_t *img = lv_image_create(s_scr);
     lv_image_set_src(img, src);
     return img;
 }
 
-// Centres the robot (lamp included) in the robot area and picks the matching size.
-static void robot_place(void) {
-    s_art = &hw_robot_art[s_zone == ZONE_LARGE ? 1 : 0][s_facing];
-    int above = s_art->lamp_y < 0 ? -s_art->lamp_y : 0;   // lamp sticking out above the body
-    s_rx = (240 - s_art->w) / 2;
-    s_ry = (s_zone - (s_art->h + above)) / 2 + above;
-    lv_image_set_src(s_body, s_art->body);
+// Top-left of the robot when it sits centred in the robot area.
+static void robot_home(const hw_robot_art_t *a, int *x, int *y) {
+    int above = a->lamp_y < 0 ? -a->lamp_y : 0;   // lamp sticking out above the body
+    *x = (240 - a->w) / 2;
+    *y = (s_zone - (a->h + above)) / 2 + above;
+}
+
+// Moves the robot's parts so the body's top-left is at (rx, ry).
+static void robot_move(int rx, int ry) {
+    s_rx = rx;
+    s_ry = ry;
     lv_obj_set_pos(s_body, s_rx, s_ry);
     lv_obj_set_pos(s_roller, s_rx + s_art->roller_x, s_ry + s_art->roller_y);
     lv_obj_set_pos(s_lamp, s_rx + s_art->lamp_x, s_ry + s_art->lamp_y);
+}
+
+// Turns the robot around (0: facing right, 1: left) at its current size.
+static void robot_face(int facing) {
+    if (facing == s_facing) return;
+    s_facing = facing;
+    s_art = &hw_robot_art[s_zone == ZONE_LARGE ? 1 : 0][s_facing];
+    lv_image_set_src(s_body, s_art->body);
+}
+
+// Centres the robot (lamp included) in the robot area and picks the matching size.
+static void robot_place(void) {
+    s_art = &hw_robot_art[s_zone == ZONE_LARGE ? 1 : 0][s_facing];
+    int x, y;
+    robot_home(s_art, &x, &y);
+    lv_image_set_src(s_body, s_art->body);
+    robot_move(x, y);
     // Battery: a small upright cell beside the robot, vertically centred.
     lv_obj_set_pos(s_batt_cap, BATT_X + 4, s_zone / 2 - 17);
     lv_obj_set_pos(s_batt, BATT_X, s_zone / 2 - 14);
@@ -303,9 +335,27 @@ static void alert_create(lv_obj_t *p) {
 }
 
 static void done_create(lv_obj_t *p) {
-    lv_obj_t *t = centered(p, 30, &hw_font_24, C_OK);
-    lv_label_set_text(t, "★ 全部完成！★");
+    // Finished task cards: same look as the list rows, swept away by the robot.
+    for (int i = 0; i < HW_SWEEP_MAX; i++) {
+        lv_obj_t *r = box(p, 8, 2 + i * ROW_H, 224, ROW_H - 2, C_PANEL, 8);
+        lv_obj_add_flag(r, LV_OBJ_FLAG_HIDDEN);
+        s_dc[i] = r;
+        s_dc_badge[i] = box(r, 5, 5, 30, 30, 0x7A8594, 7);
+        s_dc_char[i] = label(s_dc_badge[i], &hw_font_24, C_PANEL);
+        lv_obj_center(s_dc_char[i]);
+        s_dc_title[i] = label(r, &hw_font_18, C_SOFT);
+        lv_obj_set_pos(s_dc_title[i], 42, (ROW_H - 2 - lv_font_get_line_height(&hw_font_18)) / 2);
+        lv_obj_set_size(s_dc_title[i], TITLE_W, lv_font_get_line_height(&hw_font_18));
+        lv_label_set_long_mode(s_dc_title[i], LV_LABEL_LONG_DOT);
+        lv_obj_t *star = label(r, &hw_font_18, C_OK);
+        lv_label_set_text(star, "★");
+        lv_obj_align(star, LV_ALIGN_RIGHT_MID, -6, 0);
+    }
+    s_d_title = centered(p, 30, &hw_font_24, C_OK);
+    lv_label_set_text(s_d_title, "★ 全部完成！★");
     s_d_text = centered(p, 70, &hw_font_24, C_INK);
+    lv_obj_add_flag(s_d_title, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_d_text, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void setup_create(lv_obj_t *p) {
@@ -317,6 +367,12 @@ static void setup_create(lv_obj_t *p) {
 static void confirm_create(lv_obj_t *p) {
     lv_obj_t *t = centered(p, 30, &hw_font_24, C_INK);
     lv_label_set_text(t, "重新设置 Wi-Fi？\n\n设备会重启并进入\n配网模式");
+}
+
+// DIAG(power): count screen redraws.
+static void count_flush(lv_event_t *e) {
+    const lv_area_t *a = lv_event_get_param(e);
+    if (a) hw_diag_ui_flush((int)(lv_area_get_width(a) * lv_area_get_height(a)));
 }
 
 void hw_ui_init(void) {
@@ -369,7 +425,15 @@ void hw_ui_init(void) {
     lv_obj_set_style_anim_duration(s_rec_bar, 80, LV_PART_MAIN);
     lv_obj_add_flag(s_rec, LV_OBJ_FLAG_HIDDEN);
 
+    // Confetti for the celebration: tiny squares on the screen, shown only while they fly.
+    static const uint32_t CONFETTI[] = { 0xE2483D, 0xF2C230, 0x3D7BE0, 0x2F9E6B, 0x8A5CD6 };
+    for (int i = 0; i < HW_SWEEP_PARTICLES; i++) {
+        s_conf[i] = box(s_scr, 0, 0, 6 + i % 3, 6 + i % 3, CONFETTI[i % 5], 1);
+        lv_obj_add_flag(s_conf[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
     lv_screen_load(s_scr);
+    lv_display_add_event_cb(lv_display_get_default(), count_flush, LV_EVENT_FLUSH_START, NULL);   // DIAG(power)
     bsp_lvgl_unlock();
 }
 
@@ -396,6 +460,84 @@ void hw_ui_rec_update(int elapsed_ms, int level) {
     bsp_lvgl_unlock();
 }
 
+// ---- celebration: the robot sweeps the finished task cards off the screen ---------------
+// Everything is a function of elapsed time (hw_sweep.c); one LVGL animation just feeds it
+// the clock and the functions below move the robot, the cards and the confetti to match.
+static void sweep_apply(int ms) {
+    hw_sweep_pose_t p;
+    hw_sweep_pose(&s_geo, s_sweep_n, ms, &p);
+    robot_face(p.facing);
+    robot_move(p.x, p.y);
+    robot_draw();
+    for (int i = 0; i < s_sweep_n; i++) {
+        int c = p.cleared[i];
+        if (c >= 1000) {
+            lv_obj_add_flag(s_dc[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        lv_obj_remove_flag(s_dc[i], LV_OBJ_FLAG_HIDDEN);
+        // Pushed off ahead of the brush, speeding up (c^2), in the direction the robot sweeps.
+        lv_obj_set_x(s_dc[i], 8 + hw_sweep_dir(i) * (c * c / 1000) * 240 / 1000);
+    }
+    if (p.text_on) {
+        lv_obj_remove_flag(s_d_title, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(s_d_text, LV_OBJ_FLAG_HIDDEN);
+    }
+    for (int i = 0; i < HW_SWEEP_PARTICLES; i++) {
+        hw_sweep_particle_t q;
+        hw_sweep_particle(&s_geo, s_sweep_n, i, ms, &q);
+        if (!q.visible) {
+            lv_obj_add_flag(s_conf[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
+        }
+        lv_obj_remove_flag(s_conf[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(s_conf[i], q.x, q.y);
+        lv_obj_set_style_bg_opa(s_conf[i], (lv_opa_t)q.opa, 0);
+    }
+}
+
+static void sweep_step(void *var, int32_t ms) {
+    (void)var;
+    sweep_apply((int)ms);
+}
+
+static void sweep_stop(void) {
+    lv_anim_delete(&s_sweep_n, sweep_step);
+    for (int i = 0; i < HW_SWEEP_PARTICLES; i++) lv_obj_add_flag(s_conf[i], LV_OBJ_FLAG_HIDDEN);
+}
+
+static void sweep_start(void) {
+    sweep_stop();
+    const hw_robot_art_t *a = &hw_robot_art[0][0];
+    int rh = a->roller[0]->header.h;
+    robot_home(a, &s_geo.home_x, &s_geo.home_y);
+    s_geo.row_pitch = ROW_H;
+    s_geo.first_row_y = ZONE_SMALL + 2 + (ROW_H - 2) / 2 - a->roller_y - rh / 2;
+    s_geo.min_x = 6;
+    s_geo.max_x = 240 - a->w - 6;
+    s_geo.body_w = a->w;
+    s_geo.roller_cy = a->roller_y + rh / 2;
+    for (int f = 0; f < HW_ROBOT_FACINGS; f++) {
+        s_geo.roller_cx[f] = hw_robot_art[0][f].roller_x + hw_robot_art[0][f].roller[0]->header.w / 2;
+    }
+    // The robot must be drawn over the cards it drives across.
+    lv_obj_t *parts[] = { s_body, s_roller, s_lamp, s_eye[0], s_eye[1] };
+    for (unsigned i = 0; i < sizeof parts / sizeof parts[0]; i++) lv_obj_move_foreground(parts[i]);
+    for (int i = 0; i < HW_SWEEP_PARTICLES; i++) lv_obj_move_foreground(s_conf[i]);
+    lv_obj_add_flag(s_d_title, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_d_text, LV_OBJ_FLAG_HIDDEN);
+    sweep_apply(0);
+    int total = hw_sweep_total_ms(s_sweep_n);
+    lv_anim_t an;
+    lv_anim_init(&an);
+    lv_anim_set_var(&an, &s_sweep_n);
+    lv_anim_set_exec_cb(&an, sweep_step);
+    lv_anim_set_values(&an, 0, total);
+    lv_anim_set_duration(&an, (uint32_t)total);
+    lv_anim_set_path_cb(&an, lv_anim_path_linear);
+    lv_anim_start(&an);
+}
+
 void hw_ui_show(hw_page_t pg) {
     if (!s_scr || !bsp_lvgl_lock(200)) return;
     for (int i = 0; i < HW_PAGE_COUNT; i++) {
@@ -403,8 +545,10 @@ void hw_ui_show(hw_page_t pg) {
         else lv_obj_add_flag(s_pages[i], LV_OBJ_FLAG_HIDDEN);
     }
     s_zone = pg == HW_PAGE_TIMER ? ZONE_LARGE : ZONE_SMALL;
+    sweep_stop();                       // leaving the done page ends the celebration
     robot_place();
     robot_tick(NULL);
+    if (pg == HW_PAGE_DONE) sweep_start();
     // Overlays sit at the top of the information area.
     lv_obj_align(s_toast, LV_ALIGN_TOP_MID, 0, s_zone + 6);
     lv_obj_set_y(s_rec, s_zone + 4);
@@ -461,7 +605,6 @@ void hw_ui_set_list(const hw_list_t *l, int selected) {
         bool editing = sel && s_edit_minutes >= 0 && !fin;
         if (fin) lv_label_set_text(s_row_min[i], "★");
         else if (editing) lv_label_set_text_fmt(s_row_min[i], "%d分", s_edit_minutes);
-        else if (t->optional) lv_label_set_text_fmt(s_row_min[i], "选%d", t->minutes);
         else lv_label_set_text_fmt(s_row_min[i], "%d分", t->minutes);
         lv_obj_set_style_text_color(s_row_min[i], lv_color_hex(editing ? C_PANEL : fin ? C_OK : C_SOFT), 0);
         // Editing: the minutes sit on an orange pill so it is obvious what the keys change.
@@ -504,9 +647,29 @@ void hw_ui_set_alert(const char *title, int choice) {
     bsp_lvgl_unlock();
 }
 
-void hw_ui_set_done(int finished) {
+// Call before hw_ui_show(HW_PAGE_DONE): the finished tasks become the cards to sweep away.
+void hw_ui_set_empty(bool all_done) {
     if (!s_scr || !bsp_lvgl_lock(200)) return;
-    lv_label_set_text_fmt(s_d_text, "今天 %d 项作业\n都做完了\n你真厉害！", finished);
+    lv_label_set_text(s_list_empty, all_done ? "今天的作业\n全部完成啦！" : "还没有作业\n等爸爸妈妈上传");
+    bsp_lvgl_unlock();
+}
+
+void hw_ui_set_done(const hw_list_t *l) {
+    if (!s_scr || !bsp_lvgl_lock(200)) return;
+    lv_label_set_text_fmt(s_d_text, "今天 %d 项作业\n都做完了\n你真厉害！", hw_list_done_count(l));
+    int n = 0;
+    for (int i = 0; i < l->count && n < HW_SWEEP_MAX; i++) {
+        const hw_task_t *t = &l->tasks[i];
+        if (t->status != HW_ST_DONE) continue;
+        lv_obj_set_style_bg_color(s_dc_badge[n], lv_color_hex(subject_color(t->subject)), 0);
+        const char *ch = subject_char(t->subject);
+        if (ch) lv_label_set_text(s_dc_char[n], ch);
+        if (ch) lv_obj_remove_flag(s_dc_char[n], LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_add_flag(s_dc_char[n], LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(s_dc_title[n], t->title);
+        n++;
+    }
+    s_sweep_n = n;
     bsp_lvgl_unlock();
 }
 

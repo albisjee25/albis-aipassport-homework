@@ -68,6 +68,12 @@
   "homeworkHelper": {
     "releaseNotes": [
       {
+        "version": "0.4.0",
+        "date": "2026-11-12",
+        "zh": "### 新功能\n- **全部完成庆祝**：做完当天最后一项作业，设备上机器人会用清洁滚刷把作业卡片一行行扫掉，撒彩屑庆祝。\n- **做完自动清空**：庆祝结束后设备清空列表，显示“今天的作业全部完成啦！”，服务端把当天作业连同实际用时存档。\n- **今日作业显示总用时**：后台“今日作业”进度行显示今天已用时多少分钟，清空后仍可查看。\n### 变化\n- 不再区分必做和选做，当天所有作业都要做完。\n- 设备固件需要重新烧录（只烧应用，Wi-Fi 配置保留）。",
+        "en": "### New\n- **All-done celebration**: when the last task of the day is finished, the robot on the device sweeps the task cards away with its roller brush and throws confetti.\n- **Auto clear**: after the celebration the device clears its list and says all of today's homework is done; the server archives the day with the real time worked.\n- **Total time on Today**: the progress line on the Today page shows how many minutes were used today, even after the list is cleared.\n### Changes\n- No more required vs optional: every task of the day has to be done.\n- The device firmware needs a re-flash (app only; Wi-Fi settings are kept)."
+      },
+      {
         "version": "0.3.0",
         "date": "2026-11-12",
         "zh": "### 新功能\n- **设备配对**：设备不再写死电脑名和令牌。开机后自动找到电脑，屏幕显示 4 位配对码，在插件页最上方点“允许”即可连上，所有家庭可用同一份固件。\n- **插件更新**：有新版本时，插件页顶部和侧边栏会提示，点“更新”就能装好新版，重启 Harness 生效。\n### 修复\n- 电脑拒绝设备令牌后，设备会自己重新配对，不用重刷固件。",

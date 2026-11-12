@@ -36,6 +36,9 @@ run_static_checks() {
         tests/test_hw_model.c main/hw_model.c -o "${test_dir}/test_hw_model"
     "${test_dir}/test_hw_model"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_hw_sweep.c main/hw_sweep.c -o "${test_dir}/test_hw_sweep"
+    "${test_dir}/test_hw_sweep"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_key_guard.c -o "${test_dir}/test_key_guard"
     "${test_dir}/test_key_guard"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Icomponents/bsp/src \

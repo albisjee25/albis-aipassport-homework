@@ -23,7 +23,6 @@ typedef struct {
     char title[HW_TITLE_LEN];
     char subject[HW_SUBJECT_LEN];
     uint16_t minutes;
-    bool optional;
     hw_status_t status;
 } hw_task_t;
 
@@ -35,11 +34,10 @@ typedef struct {
 
 void hw_list_init(hw_list_t *l);
 int hw_list_find(const hw_list_t *l, const char *id);
-// Required (non-optional) totals for the progress line.
-int hw_list_required(const hw_list_t *l);
-int hw_list_required_done(const hw_list_t *l);
-bool hw_list_all_required_done(const hw_list_t *l);
-// First task that is not done, preferring required ones; -1 if none.
+// Every task of the day has to be done: there is no optional homework.
+int hw_list_done_count(const hw_list_t *l);
+bool hw_list_all_done(const hw_list_t *l);
+// First task that is not done; -1 if none.
 int hw_list_next_todo(const hw_list_t *l);
 // True when `incoming` contains an id that `old` does not (a new assignment arrived).
 bool hw_list_has_new_ids(const hw_list_t *old, const hw_list_t *incoming);
