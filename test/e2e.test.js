@@ -204,3 +204,9 @@ test('新设备配对：没有令牌被拒 → 申请 → 后台允许 → 领�
   const list = await api('/api/device/list', { headers: { 'X-Device-Token': got.body.token } })
   assert.equal(list.status, 200)
 })
+
+test('/api/update：没有插件管理器时返回空，且只允许 GET', async () => {
+  const r = await api('/api/update')
+  assert.equal(r.status, 200)
+  assert.deepEqual(r.body, { updates: [], notes: [] })
+})

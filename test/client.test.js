@@ -13,12 +13,18 @@ const React = {
   useState: (init) => [init, () => {}],
   useMemo: (fn) => fn(),
   useEffect: () => {},
+  useSyncExternalStore: (_sub, snap) => snap(),
 }
 
-function load() {
+// client.js 在 vm 里运行，它的 globalThis 不是测试的 globalThis：更新横幅的共享状态要放进 vm 的沙箱里
+const HUB = Symbol.for('albis-aipassport-homework/updates')
+let pendingHub = null, sandbox = null
+function load(fetchImpl = () => Promise.reject(new Error('offline'))) {
   let mod
-  const window = { __ModuleLoader__: { load: (m) => { mod = m } }, localStorage: { getItem: () => null } }
-  vm.runInNewContext(SRC, { window, fetch: () => Promise.reject(new Error('offline')), setInterval, clearInterval })
+  const window = { __ModuleLoader__: { load: (m) => { mod = m } }, localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {} } }
+  sandbox = { window, fetch: fetchImpl, setInterval, clearInterval }
+  if (pendingHub) sandbox[HUB] = pendingHub
+  vm.runInNewContext(SRC, sandbox)
   const api = mod.factory((name) => { assert.equal(name, 'react'); return React })
   return { mod, api }
 }
@@ -141,4 +147,80 @@ test('新设备请求连接：配对码和“允许/拒绝”显示在插件页�
   for (const s of ['4821', '有一台新设备请求连接', '允许', '拒绝']) assert.ok(withReq.includes(s), `缺少：${s}`)
   assert.ok(!withReq.includes('192.168.1.9'), '不显示设备地址')
   assert.ok(!render([]).includes('有一台新设备请求连接'))
+})
+
+// ---- 插件更新横幅 ----
+const NOTES = [{ version: '0.3.1', date: '2026-11-20', zh: '### 新功能\n- 新增 **统计报表**', en: '' }]
+const UPDATE = { name: 'albis-aipassport-homework', version: '0.3.0', latest: '0.3.1', spec: 'https://x/a.tgz', registry: 'https://registry.npmjs.org/', enabled: true }
+const setHub = (state) => { pendingHub = { state: { updates: [], notes: [], phase: 'idle', restart: false, failure: null, dismissed: '', ...state }, listeners: new Set() }; if (sandbox) sandbox[HUB] = pendingHub }
+const pageOf = () => {
+  const { api } = load()
+  let Page, Icon
+  api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp; else Icon = comp } } })
+  return { Page, Icon }
+}
+const findNodes = (node, pred, out = []) => {
+  if (!node || typeof node !== 'object') return out
+  if (Array.isArray(node)) { node.forEach((n) => findNodes(n, pred, out)); return out }
+  if (pred(node)) out.push(node)
+  if (typeof node.type === 'function') findNodes(node.type({ ...node.props, children: node.children }), pred, out)
+  else node.children.forEach((c) => findNodes(c, pred, out))
+  return out
+}
+
+test('插件更新：有新版本时顶部显示横幅、更新日志和“稍后/更新”', () => {
+  setHub({ updates: [UPDATE], notes: NOTES })
+  try {
+    const { Page } = pageOf()
+    const text = textOf(React.createElement(Page, {})).join('')
+    for (const s of ['作业助手 插件有新版本 0.3.1', '当前是 0.3.0', '更新日志', '稍后', '更新', '新功能', '统计报表', '2026-11-20']) assert.ok(text.includes(s), `缺少：${s}`)
+  } finally { pendingHub = null }
+})
+
+test('插件更新：没有新版本时不显示；点“稍后”后只剩一行提示', () => {
+  setHub({})
+  try {
+    const { Page } = pageOf()
+    assert.ok(!textOf(React.createElement(Page, {})).join('').includes('插件有新版本'))
+    setHub({ updates: [UPDATE], notes: NOTES, dismissed: '0.3.1' })
+    const text = textOf(React.createElement(Page, {})).join('')
+    assert.ok(text.includes('作业助手有新版本 0.3.1') && text.includes('查看') && !text.includes('新功能'))
+  } finally { pendingHub = null }
+})
+
+test('插件更新：侧边栏入口旁有“更新”标签（窄图标显示小圆点）', () => {
+  setHub({ updates: [UPDATE], notes: NOTES })
+  try {
+    const { Icon } = pageOf()
+    assert.ok(textOf(React.createElement(Icon, { size: 16 })).join('').includes('更新'))
+    const rail = findNodes(React.createElement(Icon, { size: 24 }), (n) => n.props?.className === 'hwu-rail')
+    assert.equal(rail.length, 1)
+    setHub({})
+    assert.ok(!textOf(React.createElement(Icon, { size: 16 })).join('').includes('更新'))
+  } finally { pendingHub = null }
+})
+
+test('插件更新：点“更新”用插件管理器安装，成功后提示重启；失败给出原因和重试', async () => {
+  const calls = []
+  const answers = [{ ok: true, value: { application: 'restart-required' } }, { ok: true, value: { application: 'failed', error: { diagnostic: 'x\nERR_NETWORK boom' } } }]
+  const manager = { installBundle: async (spec, opts) => { calls.push([spec, opts.registry, opts.enabled]); return answers.shift() }, waitForInstall: async () => ({ ok: false, error: {} }) }
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ updates: [UPDATE], notes: NOTES }) })
+  setHub({ updates: [UPDATE], notes: NOTES })
+  try {
+    const { api } = load(fetchImpl)
+    let Page
+    api.apply({
+      slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } },
+      inject: (_names, fn) => fn({ remote: { pluginManager: manager }, effect: () => {} }),
+    })
+    const click = () => findNodes(React.createElement(Page, {}), (n) => n.type === 'button' && n.props.className?.includes('hwu-primary'))[0].props.onClick()
+    await click()
+    assert.deepEqual(calls[0], ['https://x/a.tgz', 'https://registry.npmjs.org/', true])
+    let text = textOf(React.createElement(Page, {})).join('')
+    assert.ok(text.includes('已更新到 0.3.1') && text.includes('重启 DeepSeek Harness'), text)
+    setHub({ updates: [UPDATE], notes: NOTES })
+    await click()
+    text = textOf(React.createElement(Page, {})).join('')
+    assert.ok(text.includes('更新失败') && text.includes('ERR_NETWORK boom') && text.includes('重试'), text)
+  } finally { pendingHub = null }
 })

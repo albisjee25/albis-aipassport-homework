@@ -64,5 +64,21 @@
   "homepage": "https://github.com/albisjee25/albis-aipassport-homework#readme",
   "bugs": {
     "url": "https://github.com/albisjee25/albis-aipassport-homework/issues"
+  },
+  "homeworkHelper": {
+    "releaseNotes": [
+      {
+        "version": "0.3.0",
+        "date": "2026-11-12",
+        "zh": "### 新功能\n- **设备配对**：设备不再写死电脑名和令牌。开机后自动找到电脑，屏幕显示 4 位配对码，在插件页最上方点“允许”即可连上，所有家庭可用同一份固件。\n- **插件更新**：有新版本时，插件页顶部和侧边栏会提示，点“更新”就能装好新版，重启 Harness 生效。\n### 修复\n- 电脑拒绝设备令牌后，设备会自己重新配对，不用重刷固件。",
+        "en": "### New\n- **Device pairing**: no more computer name or token baked into the firmware. The device finds the computer, shows a 4-digit code, and you tap Allow at the top of the plugin page. One firmware works for every household.\n- **Plugin updates**: a banner on the plugin page and a badge in the sidebar; tap Update, then restart Harness.\n### Fixes\n- If the computer refuses the device token, the device pairs again by itself."
+      },
+      {
+        "version": "0.1.0",
+        "date": "2026-11-11",
+        "zh": "- 第一个版本：作业截图整理成清单、设备上倒计时、按住说话。",
+        "en": "- First release: screenshots to a checklist, countdown on the device, push-to-talk."
+      }
+    ]
   }
 }

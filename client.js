@@ -80,6 +80,34 @@ window.__ModuleLoader__.load({
 .hwh-warn .hwh-dot,.hwh-dot.hwh-warn{background:var(--dsw-alias-state-warn-primary,#F5A524)}
 .hwh-bad .hwh-dot,.hwh-dot.hwh-bad{background:var(--dsw-alias-state-error-primary,#E5484D)}
 
+/* 插件更新横幅（样式与“作品”页的更新横幅一致） */
+.hwu-panel{margin-bottom:24px;padding:16px 20px;border-radius:var(--hwh-radius);background:var(--dsw-alias-bg-layer-1)}
+.hwu-head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.hwu-head-text{flex:1;min-width:200px}
+.hwu-title{font-size:15px;font-weight:500}
+.hwu-text{margin-top:2px;color:var(--dsw-alias-label-secondary);font-size:13px}
+.hwu-text a,.hwu-note a{color:var(--dsw-alias-state-business-primary,var(--hwh-accent));margin-left:4px}
+.hwu-actions{display:flex;gap:8px}
+.hwu-btn{border:0;border-radius:8px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer;background:color-mix(in srgb,var(--dsw-alias-label-primary) 7%,transparent);color:inherit}
+.hwu-primary{background:var(--dsw-alias-label-primary);color:var(--dsw-alias-bg-layer-1)}
+.hwu-notes{margin-top:12px;padding-top:12px;border-top:.5px solid var(--dsw-alias-border-l2,rgba(128,128,128,.25));max-height:240px;overflow-y:auto}
+.hwu-note+.hwu-note{margin-top:16px}
+.hwu-note-head{font-weight:500}
+.hwu-note-date{margin-left:8px;font-weight:400;color:var(--dsw-alias-label-tertiary)}
+.hwu-note h4{margin:8px 0 2px;font-size:12px;font-weight:500;color:var(--dsw-alias-label-secondary)}
+.hwu-note p{margin:4px 0 0}
+.hwu-note ul{margin:0;padding-left:18px}
+.hwu-note li+li{margin-top:2px}
+.hwu-note code{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.hwu-line{display:flex;align-items:center;gap:8px;margin:-4px 0 20px;color:var(--dsw-alias-label-secondary);font-size:13px}
+.hwu-show{padding:0;border:0;background:none;color:var(--dsw-alias-state-business-primary,var(--hwh-accent));font:inherit;cursor:pointer}
+.hwu-rail{position:relative;display:inline-flex}
+.hwu-dot{position:absolute;top:-2px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--dsw-alias-state-business-primary,#4d6bfe)}
+.hwu-dot[data-bad]{background:var(--dsw-alias-state-error-primary,#E5484D)}
+button:has(.hwu-pill){position:relative}
+.hwu-pill{position:absolute;top:50%;right:8px;transform:translateY(-50%);padding:0 7px;border-radius:9px;font-size:12px;line-height:18px;background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#4d6bfe) 12%,transparent);color:var(--dsw-alias-state-business-primary,#4d6bfe)}
+.hwu-pill[data-bad]{background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#E5484D) 12%,transparent);color:var(--dsw-alias-state-error-primary,#E5484D)}
+
 /* 新设备请求连接 */
 .hwh-pair{margin-bottom:24px;padding:16px 20px;border-radius:20px;background:color-mix(in srgb,#F5A524 16%,var(--dsw-alias-bg-layer-1));border:1px solid color-mix(in srgb,#F5A524 45%,transparent)}
 .hwh-pair-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:4px 0}
@@ -328,12 +356,155 @@ window.__ModuleLoader__.load({
           h(Table, { rows: robotSigns })))
     }
 
+    // ---- 插件更新：和“作品”页同一套体验。电脑端服务（/api/update）告诉我们有没有新版本和更新日志，
+    //      点“更新”用 Harness 的插件管理器安装新版，装好后重启 Harness 生效 ----
+    const UPD_HUB = Symbol.for('albis-aipassport-homework/updates')
+    const DISMISSED_KEY = 'albis-aipassport-homework.update.dismissed'
+    const CHANGELOG_URL = 'https://github.com/albisjee25/albis-aipassport-homework/releases'
+    const portOf = () => Number(window.localStorage?.getItem('homework-helper.port')) || DEFAULT_PORT
+    const readDismissed = () => { try { return window.localStorage?.getItem(DISMISSED_KEY) ?? '' } catch { return '' } }
+    const hub = () => (globalThis[UPD_HUB] ??= { state: { updates: [], notes: [], phase: 'idle', restart: false, failure: null, dismissed: readDismissed() }, listeners: new Set() })
+    const setUpd = (patch) => { const x = hub(); x.state = { ...x.state, ...patch }; for (const l of [...x.listeners]) l() }
+    const useUpd = () => {
+      const sub = (l) => { hub().listeners.add(l); return () => hub().listeners.delete(l) }
+      const snap = () => hub().state
+      return React.useSyncExternalStore ? React.useSyncExternalStore(sub, snap) : snap()
+    }
+    let pluginManager
+    async function readUpdates(refresh) {
+      try {
+        const r = await fetch(`http://127.0.0.1:${portOf()}/api/update${refresh ? '?refresh=1' : ''}`, { cache: 'no-store' })
+        if (!r.ok) return null
+        const { updates, notes } = await r.json()
+        return Array.isArray(updates) ? { updates, notes: Array.isArray(notes) ? notes : [] } : null
+      } catch { return null }
+    }
+    async function lookForUpdates() {
+      const a = await readUpdates(false)
+      if (a && hub().state.phase !== 'running') setUpd({ updates: a.updates, notes: a.notes })
+    }
+    const failReason = (o) => {
+      const refused = o.error?.incompatible?.[0]
+      if (refused) return `${refused.name}@${refused.version} 要求 ${Object.entries(refused.requirements).map(([k, v]) => `${k} ${v}`).join('、')}`
+      const lines = (o.error?.diagnostic ?? '').split('\n').map((x) => x.trim()).filter(Boolean)
+      return (lines.find((x) => x.includes('ERR_')) ?? lines.at(-1) ?? o.error?.code ?? o.application ?? '未知原因').slice(0, 240)
+    }
+    async function installOne(manager, plugin, requestId) {
+      const a = await manager.installBundle(plugin.spec, { enabled: plugin.enabled, registry: plugin.registry, requestId })
+      if (a.ok) return a.value
+      const again = await manager.waitForInstall(requestId)
+      if (again.ok && again.value !== null) return again.value
+      return { application: 'failed', error: { diagnostic: a.error?.message ?? 'Harness 没有回应' } }
+    }
+    async function startUpdate() {
+      const { phase, updates } = hub().state
+      if (phase === 'running' || updates.length === 0) return
+      if (!pluginManager) return setUpd({ phase: 'failed', failure: { message: '这个版本的 Harness 不支持在这里更新，请到“插件”里更新。' } })
+      setUpd({ phase: 'running', failure: null })
+      const fresh = await readUpdates(true)
+      const plugin = (fresh?.updates ?? hub().state.updates)[0]
+      if (!plugin) return setUpd({ phase: 'idle', updates: [], notes: [] })
+      let outcome
+      try { outcome = await installOne(pluginManager, plugin, `homework-update-${Date.now()}`) } catch (e) { outcome = { application: 'failed', error: { diagnostic: e.message } } }
+      const already = outcome.application === 'failed' && outcome.error?.code === 'already-installed'
+      if ((outcome.application === 'failed' || outcome.application === 'cancelled') && !already) {
+        return setUpd({ phase: 'failed', failure: { message: failReason(outcome) } })
+      }
+      setUpd({ phase: 'done', updated: plugin, updates: [], restart: outcome.application === 'restart-required' })
+      void lookForUpdates()
+    }
+    const laterUpd = () => {
+      const v = hub().state.updates[0]?.latest ?? ''
+      try { window.localStorage?.setItem(DISMISSED_KEY, v) } catch { /* 存不了就算了，下次还会提示 */ }
+      setUpd({ dismissed: v })
+    }
+    const closeUpd = () => setUpd({ phase: 'idle', failure: null, updated: undefined })
+    const reopenUpd = () => { try { window.localStorage?.removeItem(DISMISSED_KEY) } catch { /* 同上 */ } setUpd({ dismissed: '' }) }
+
+    // 更新日志里只认这几种写法：### 小标题、- 列表、**粗体**、`代码`、[文字](链接)
+    function inlineMd(text) {
+      const out = []
+      let at = 0
+      for (const m of text.matchAll(/\*\*(.+?)\*\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+        if (m.index > at) out.push(text.slice(at, m.index))
+        if (m[1] !== undefined) out.push(h('strong', { key: m.index }, m[1]))
+        else if (m[2] !== undefined) out.push(h('code', { key: m.index }, m[2]))
+        else out.push(h('a', { key: m.index, href: m[4], target: '_blank', rel: 'noreferrer' }, m[3]))
+        at = m.index + m[0].length
+      }
+      if (at < text.length) out.push(text.slice(at))
+      return out
+    }
+    function noteBlocks(body) {
+      const blocks = []
+      let items = []
+      const flush = () => { if (items.length) blocks.push(h('ul', { key: blocks.length }, items.map((x, i) => h('li', { key: i }, inlineMd(x))))); items = [] }
+      for (const line of String(body).split('\n')) {
+        const li = /^\s*[-*]\s+(.*)$/.exec(line)
+        if (li) { items.push(li[1]); continue }
+        flush()
+        const hd = /^#{1,6}\s+(.*)$/.exec(line)
+        if (hd) blocks.push(h('h4', { key: blocks.length }, inlineMd(hd[1])))
+        else if (line.trim()) blocks.push(h('p', { key: blocks.length }, inlineMd(line.trim())))
+      }
+      flush()
+      return blocks
+    }
+
+    // 页面最上方的更新横幅
+    function UpdatePanel() {
+      const { phase, updates, notes, restart, failure, dismissed, updated } = useUpd()
+      const u = updates[0]
+      if (phase === 'idle' && !u) return null
+      if (phase === 'idle' && u.latest === dismissed) {
+        return h('div', { className: 'hwu-line' }, h('span', null, `作业助手有新版本 ${u.latest}`), h('button', { type: 'button', className: 'hwu-show', onClick: reopenUpd }, '查看'))
+      }
+      let title, text = null, actions = null
+      if (phase === 'running') title = '正在更新作业助手…'
+      else if (phase === 'done') {
+        title = `作业助手已更新到 ${updated?.latest ?? ''}`
+        text = restart ? '重启 DeepSeek Harness 后生效。' : '新版本已就绪。'
+        actions = h('button', { type: 'button', className: 'hwu-btn', onClick: closeUpd }, '关闭')
+      } else if (phase === 'failed') {
+        title = '作业助手更新失败'
+        text = `${failure?.message ?? ''} 原来的版本还能继续用。`
+        actions = [h('button', { key: 'c', type: 'button', className: 'hwu-btn', onClick: closeUpd }, '关闭'),
+          u ? h('button', { key: 'r', type: 'button', className: 'hwu-btn hwu-primary', onClick: startUpdate }, '重试') : null]
+      } else {
+        title = `作业助手 插件有新版本 ${u.latest}`
+        text = [`当前是 ${u.version}。`, h('a', { key: 'a', href: CHANGELOG_URL, target: '_blank', rel: 'noreferrer' }, '更新日志')]
+        actions = [h('button', { key: 'l', type: 'button', className: 'hwu-btn', onClick: laterUpd }, '稍后'),
+          h('button', { key: 'u', type: 'button', className: 'hwu-btn hwu-primary', onClick: startUpdate }, '更新')]
+      }
+      return h('section', { className: 'hwu-panel', role: phase === 'failed' ? 'alert' : 'status', 'data-phase': phase },
+        h('div', { className: 'hwu-head' },
+          h('div', { className: 'hwu-head-text' }, h('div', { className: 'hwu-title' }, title), text ? h('div', { className: 'hwu-text' }, text) : null),
+          actions ? h('div', { className: 'hwu-actions' }, actions) : null),
+        phase === 'idle' && notes.length
+          ? h('div', { className: 'hwu-notes', tabIndex: 0 }, notes.map((n) => h('div', { key: n.version, className: 'hwu-note' },
+              h('div', { className: 'hwu-note-head' }, n.version, n.date ? h('span', { className: 'hwu-note-date' }, n.date) : null),
+              noteBlocks(n.zh))))
+          : null)
+    }
+
+    // 侧边栏入口旁的小标记：宽的（带文字）显示“更新”标签，窄的（只有图标）显示小圆点
+    function UpdateMark({ wide, children }) {
+      const { phase, updates, restart, dismissed } = useUpd()
+      const mark = phase === 'running' ? '更新中' : phase === 'failed' ? '更新失败' : phase === 'done' && restart ? '待重启'
+        : updates[0] && updates[0].latest !== dismissed ? '更新' : null
+      if (!mark) return children
+      const bad = mark === '更新失败' ? '1' : undefined
+      if (wide) return h(React.Fragment || 'span', null, children, h('span', { className: 'hwu-pill', 'data-bad': bad }, mark))
+      return h('span', { className: 'hwu-rail' }, children, h('span', { className: 'hwu-dot', 'data-bad': bad }))
+    }
+
     function Body() {
       const s = useInfo()
       const pill = s.status === 'checking' ? ['', '检测中…'] : s.status === 'up' ? ['hwh-ok', '运行中'] : ['hwh-bad', '没连上服务']
       return [
         h('div', { key: 'h', className: 'hwh-top' }, h(RobotIcon, { size: 20 }), h('h1', null, '作业助手'),
           h('span', { className: `hwh-pill ${pill[0]}` }, h('i', { className: 'hwh-dot' }), pill[1])),
+        h(UpdatePanel, { key: 'upd' }),
         h(PairCard, { key: 'pair', ...s }),
         h(Stage, { key: 'stage', ...s }),
         h(Chat, { key: 'c' }),
@@ -352,10 +523,20 @@ window.__ModuleLoader__.load({
       inject: ['slots'],
       apply(ctx) {
         CTX = ctx
+        // 定时看有没有新版本；拿 Harness 的插件管理器用来安装（和“作品”页一样）
+        ctx.effect?.(() => {
+          const first = setTimeout(() => void lookForUpdates(), 3000)
+          const every = setInterval(() => void lookForUpdates(), 6 * 60 * 60 * 1000)
+          return () => { clearTimeout(first); clearInterval(every) }
+        }, 'albis-aipassport-homework: looking for updates')
+        ctx.inject?.(['remote', 'remote.pluginManager'], (sub) => {
+          pluginManager = sub.remote.pluginManager
+          sub.effect(() => () => { pluginManager = undefined }, 'albis-aipassport-homework: the plugin manager')
+        })
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: ID }, Page))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register(
           { name: 'sidebar.panellist', id: ID, order: 30, label: '作业助手' },
-          (props) => h(RobotIcon, { size: typeof props?.size === 'number' ? props.size : 20 })))
+          (props) => { const size = typeof props?.size === 'number' ? props.size : 20; return h(UpdateMark, { wide: size <= 16 }, h(RobotIcon, { size })) }))
       },
     }
   },

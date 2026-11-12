@@ -37,6 +37,7 @@
 | `lib/asr.js` | 本机语音识别（SenseVoice） |
 | `lib/voice.js`、`voice/` | 机器人的声音：`chirp.js` 哔嘟声（默认）、`azure.js` 微软语音示例；接入方法见 `voice/README.md` |
 | `lib/tools.js` | 你在对话里能用的作业工具（`homework_list`、`homework_status`、`homework_dev_guide` 等） |
+| `lib/updates.js`、`client.js` | 插件更新：电脑端查 npm 上的新版本和更新日志（`package.json` 的 `homeworkHelper.releaseNotes`），插件页显示横幅，点“更新”用 Harness 插件管理器安装 |
 | `lib/pairing.js` | 新设备配对：局域网发现（UDP 8788）、配对码、发设备令牌（存 `devices.json`） |
 | `scripts/device-config.mjs` | 可选：给开发调试用的固件写死电脑名和令牌（`main/hw_secrets.h`）。正常安装不需要，设备靠配对连接 |
 | `test/` | 测试，改完运行 `npm test`（只在源码仓库里有） |

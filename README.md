@@ -22,7 +22,7 @@ Everything runs on your own computer inside DeepSeek Harness: the plugin uses th
 
 ## Updates
 
-The plugin market shows an update when a new version is published to npm. Firmware updates are flashed to the app partition only, so Wi-Fi settings are kept.
+When a new version is published to npm, the plugin page shows an update banner with the release notes and the sidebar entry gets an “更新” badge. Click Update, then restart Harness. (Only installs from the plugin market are offered updates.) The plugin market lists it too. Firmware updates are flashed to the app partition only, so Wi-Fi settings are kept.
 
 ## Repository layout
 

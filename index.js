@@ -9,6 +9,7 @@ import { ASR, ensureModel, modelReady } from './lib/asr.js'
 import { Brain } from './lib/llm.js'
 import { migrate } from './lib/migrate.js'
 import { Pairing } from './lib/pairing.js'
+import { updateChecker } from './lib/updates.js'
 import { startServer } from './lib/server.js'
 import { registerTools } from './lib/tools.js'
 import { Voice } from './lib/voice.js'
@@ -116,9 +117,12 @@ export async function apply(ctx, config = {}) {
   const hw = new Homework({ dataDir, brain, voice, asr, log: logger })
 
   const getInfo = () => ({ port: cfg.port, voice: voice.provider, asrReady: modelReady(modelDir) && Boolean(asr.rec), asrNote: state.asrNote || '启动中' })
+  // 插件有没有新版本：从 Harness 的插件管理器看本机装的版本，再去 npm 查最新（只有从插件市场装的才会提示）
+  const pkgName = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).name
+  const checkUpdates = updateChecker({ name: pkgName, getManager: () => { try { return ctx.get?.('pluginManager') } catch { return undefined } } })
   const pairing = new Pairing({ file: join(dataDir, 'devices.json'), legacyToken: token, log: logger }).startDiscovery(cfg.port)
   const server = await startServer({
-    hw, token, pairing, port: cfg.port, host: cfg.host, log: logger, getVoiceName: () => voice.provider, getInfo,
+    hw, token, pairing, checkUpdates, port: cfg.port, host: cfg.host, log: logger, getVoiceName: () => voice.provider, getInfo,
   })
   logger.info(`[homework] 作业助手已启动：http://127.0.0.1:${cfg.port}（设备令牌见 ${join(dataDir, 'device_token')}）`)
 
