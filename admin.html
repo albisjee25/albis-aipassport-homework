@@ -131,25 +131,22 @@
   button.ghost.danger:hover { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
   .foot-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
 
-  /* ---- 短语库：今日作业里的次要功能，默认收起 ---- */
-  details.more { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 4px; }
-  details.more > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 12px 0;
-                           color: var(--soft); font-size: 14px; user-select: none; }
-  details.more > summary::-webkit-details-marker { display: none; }
-  details.more > summary::before { content: "›"; display: inline-block; width: 12px; color: var(--faint); transition: transform .15s; }
-  details.more[open] > summary::before { transform: rotate(90deg); }
-  details.more > summary b { color: var(--ink); font-weight: 600; }
-  details.more > summary .count { background: var(--fill-2); border-radius: 99px; padding: 0 8px; font-size: 12px; }
-  .ph { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
-  .ph:first-child { border-top: 0; }
-  .ph .k { font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: var(--fill-2); color: var(--soft); flex: none; }
+  /* ---- 短语库：今日作业卡片里的次要功能，直接展示 ---- */
+  .sub-sec { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--line); }
+  .sub-sec h3 { font-size: 16px; font-weight: 650; margin: 0; }
+  .sub-sec .hint { margin: 2px 0 12px; }
+  #phrases { display: flex; flex-wrap: wrap; gap: 8px; max-height: 168px; overflow-y: auto; }
+  #phrases:empty { display: none; }
+  .ph { display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px; border-radius: 99px; background: var(--fill); font-size: 14px; max-width: 100%; }
+  .ph .k { font-size: 11.5px; padding: 0 7px; border-radius: 6px; background: var(--fill-2); color: var(--soft); flex: none; }
   .ph .k.fix { background: var(--bad-soft); color: var(--bad); }
-  .ph .x { color: var(--soft); font-size: 13px; flex: 1; }
-  .ph button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .ph b { font-weight: 600; white-space: nowrap; }
+  .ph .x { color: var(--soft); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ph button { border: 0; background: none; color: var(--faint); cursor: pointer; width: 22px; height: 22px; border-radius: 50%; line-height: 1; }
   .ph button:hover { color: var(--bad); background: var(--bad-soft); }
-  .ph-form { display: grid; grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 10px; align-items: end; margin-top: 12px; }
-  .ph-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--soft); }
-  .ph-form select, .ph-form input { padding: 9px 10px; border-radius: 10px; font-size: 14.5px; color: var(--ink); }
+  .ph-empty { color: var(--faint); font-size: 13.5px; }
+  .ph-form { display: grid; grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1.3fr) auto; gap: 8px; margin-top: 12px; }
+  .ph-form select, .ph-form input { padding: 9px 10px; border-radius: 10px; font-size: 14.5px; color: var(--ink); min-width: 0; }
   .ph-form input { border: 1px solid var(--line); background: var(--card); }
 
   /* ---- 用时记录（统计报表） ---- */
@@ -174,6 +171,9 @@
   .est.none { color: var(--faint); font-weight: 400; font-size: 13px; }
   .recent { color: var(--soft); font-size: 12.5px; line-height: 1.7; }
   .recent div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+  .note { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--line); color: var(--soft); font-size: 12.5px; line-height: 1.7; }
+  .note b { color: var(--ink); font-weight: 600; }
+  .empty.err { color: var(--warn); }
 
   /* ---- 测试页 ---- */
   .chat { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow: auto; }
@@ -252,18 +252,18 @@
         </div>
         <div class="foot-actions"><button class="ghost danger" id="clear">清空今天的清单</button></div>
 
-        <details class="more" id="phrase-box">
-          <summary><b>短语库</b><span class="count" id="ph-count">0</span><span>让 AI 听懂老师的简写、纠正常听错的词</span></summary>
-          <p class="hint" style="margin-top:0"><b>纠错</b>：识别常听错的词，识别后自动替换（例如“音一中”→“英译中”）。<b>术语</b>：老师的简写，AI 会照原样保留（例如“家默”）。</p>
-          <div id="phrases"></div>
+        <div class="sub-sec">
+          <h3>短语库</h3>
+          <p class="hint"><b>纠错</b>：识别常听错的词，自动替换（如“音一中”→“英译中”）。<b>术语</b>：老师的简写，AI 照原样保留（如“家默”）。</p>
+          <div id="phrases"><span class="ph-empty">读取中…</span></div>
           <div class="ph-form">
-            <label>类型<select id="ph-kind"><option value="term">术语</option><option value="fix">纠错</option></select></label>
-            <label>正确写法<input id="ph-text" placeholder="如：一课一练"></label>
-            <label><span id="ph-extra-label">含义（可不填）</span><input id="ph-extra" placeholder="如：每天一课的练习册"></label>
+            <select id="ph-kind" aria-label="类型"><option value="term">术语</option><option value="fix">纠错</option></select>
+            <input id="ph-text" placeholder="正确写法，如：一课一练" aria-label="正确写法">
+            <input id="ph-extra" placeholder="含义（可不填）" aria-label="补充">
             <button class="main" id="ph-add">添加</button>
           </div>
           <div class="status-line" id="ph-status"></div>
-        </details>
+        </div>
       </section>
     </div>
 
@@ -271,12 +271,8 @@
     <div class="page" id="page-stats">
       <section class="card">
         <div class="card-head"><h2>用时记录</h2><button class="ghost right" id="dur-refresh">刷新</button></div>
-        <p class="hint">孩子在设备上标“做完了”时，记下每项作业的实际用时（暂停不算）。</p>
-        <div id="durations"><div class="empty">还没有用时记录</div></div>
-        <details class="more">
-          <summary>怎么算的</summary>
-          <p class="hint" style="margin-top:0">每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
-        </details>
+        <div id="durations"><div class="empty">读取中…</div></div>
+        <p class="note"><b>怎么统计：</b>孩子在设备上标“做完了”才记录，只算倒计时真正走过的时间。每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
       </section>
     </div>
   </div>
@@ -526,22 +522,23 @@ $("#log-refresh").onclick = loadTurns;
 
 // ---- phrase book ----
 function renderPhrases(items) {
-  $("#ph-count").textContent = items.length;
   $("#phrases").innerHTML = items.map((p) => `<div class="ph">
     <span class="k ${p.kind}">${p.kind === "fix" ? "纠错" : "术语"}</span><b>${esc(p.text)}</b>
     <span class="x">${p.kind === "fix" ? "常听成：" + esc((p.heard || []).join("、")) : esc(p.meaning || "")}</span>
-    <button data-ph="${esc(p.id)}" title="删除">✕</button></div>`).join("") || '<div class="empty" style="padding:14px 0">短语库是空的</div>';
+    <button data-ph="${esc(p.id)}" title="删除">✕</button></div>`).join("") || '<span class="ph-empty">还没有短语。老师常用的简写、识别常听错的词，加在这里。</span>';
 }
-async function loadPhrases() { try { renderPhrases((await api("/api/phrases")).items); } catch {} }
+async function loadPhrases() {
+  try { renderPhrases((await api("/api/phrases")).items); }
+  catch { $("#phrases").innerHTML = '<span class="ph-empty">没能读取短语库（服务没连上），稍后刷新页面重试。</span>'; }
+}
 $("#phrases").addEventListener("click", async (e) => {
   const id = e.target.dataset.ph;
   if (id && confirm("删除这条短语？")) renderPhrases((await api(`/api/phrases/${id}`, { method: "DELETE" })).items);
 });
 $("#ph-kind").onchange = () => {
   const fix = $("#ph-kind").value === "fix";
-  $("#ph-extra-label").textContent = fix ? "常被听成什么（用逗号分隔）" : "含义（可不填）";
-  $("#ph-extra").placeholder = fix ? "如：音一中，因译中" : "如：每天一课的练习册";
-  $("#ph-text").placeholder = fix ? "如：英译中" : "如：一课一练";
+  $("#ph-text").placeholder = fix ? "正确写法，如：英译中" : "正确写法，如：一课一练";
+  $("#ph-extra").placeholder = fix ? "常被听成什么，用逗号分隔，如：音一中，因译中" : "含义（可不填）";
 };
 $("#ph-add").onclick = async () => {
   const kind = $("#ph-kind").value, text = $("#ph-text").value.trim(), extra = $("#ph-extra").value.trim();
@@ -557,7 +554,8 @@ loadPhrases();
 // ---- 用时记录 ----
 async function loadDurations() {
   let r;
-  try { r = await api("/api/durations"); } catch { return; }
+  try { r = await api("/api/durations"); }
+  catch { $("#durations").innerHTML = '<div class="empty err">没能读取用时记录（服务没连上），稍后点“刷新”重试。</div>'; return; }
   if (!r.categories.length) { $("#durations").innerHTML = '<div class="empty">还没有用时记录。孩子在设备上标“做完了”后，这里就会出现统计。</div>'; return; }
   const total = r.categories.reduce((a, c) => a + c.count, 0);
   const ready = r.categories.filter((c) => c.estimate).length;
