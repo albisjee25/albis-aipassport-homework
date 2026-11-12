@@ -241,7 +241,7 @@ window.__ModuleLoader__.load({
           const r = await fetch(`http://127.0.0.1:${port}/api/pair/${kind}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-HW-Pair': '1' }, body: JSON.stringify({ code }) })
           if (!r.ok) throw new Error(String(r.status))
           refresh?.()
-        } catch { setErr('这里没能完成操作，请打开家长后台（页面下方的按钮）在那里点“允许”。') }
+        } catch { setErr('没能完成操作。请重启一次 Harness 后再试；还不行，就在下面的“检查设备连接”里让 AI 帮你排查。') }
       }
       return h('section', { className: 'hwh-pair', role: 'alert' }, list.map((p) =>
         h('div', { key: p.code, className: 'hwh-pair-row' },

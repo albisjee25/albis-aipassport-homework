@@ -17,7 +17,7 @@ Everything runs on your own computer inside DeepSeek Harness: the plugin uses th
 1. Install the plugin from the Harness plugin market (search `albis-aipassport-homework`), or run
    `dsh plugin --profile desktop add albis-aipassport-homework`, then restart Harness.
 2. Install the homework firmware on the device: flash it from the FoloToy AI Passport community page, or open the plugin page, click “修改设备设置或刷机” and ask the agent to build and flash `firmware/` (it asks before flashing). The same firmware works for every household.
-3. Set up Wi-Fi with the “蓝牙配网” mini program. The device then shows a **4-digit pairing code**; the top of the plugin page in Harness shows the same code with Allow / Deny buttons (the parent dashboard shows it too, as a fallback). Check they match and click “允许”. The computer gives this device its own token, which it keeps; later boots connect by themselves. Click “拒绝” for a device you do not know.
+3. Set up Wi-Fi with the “蓝牙配网” mini program. The device then shows a **4-digit pairing code**; the top of the plugin page in Harness shows the same code with Allow / Deny buttons. Check they match and click “允许”. The computer gives this device its own token, which it keeps; later boots connect by themselves. Click “拒绝” for a device you do not know.
 4. The plugin page shows the device as online and the robot's head lamp turns red.
 
 ## Updates
