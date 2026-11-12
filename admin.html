@@ -135,21 +135,18 @@
   .sub-sec { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
   .sub-sec > h3 { font-size: 16px; font-weight: 650; margin: 0; }
   .sub-sec > .hint { margin: 2px 0 4px; }
-  .pair { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1.5fr) 30px; gap: 10px; align-items: center; }
-  .ph-list { margin-top: 10px; }
-  .ph-list .pair { padding: 9px 0; box-shadow: 0 1px 0 var(--line); }
-  .ph-list .pair b { font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
-  .ph-list .pair .to { color: var(--faint); text-align: center; }
-  .ph-list .pair .v { color: var(--soft); font-size: 14px; overflow-wrap: anywhere; }
-  .ph-list .pair .v.none { color: var(--faint); }
-  .ph-list .pair button { border: 0; background: none; color: var(--faint); cursor: pointer; width: 26px; height: 26px; border-radius: 8px; opacity: .5; justify-self: end; }
-  .ph-list .pair:hover button, .ph-list .pair button:focus { opacity: 1; }
-  .ph-list .pair button:hover { color: var(--bad); background: var(--bad-soft); }
-  .ph-eg { color: var(--faint); font-size: 13.5px; padding: 8px 0 2px; }
-  .pair.add { margin-top: 10px; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1.5fr) auto; }
-  .pair.add .to { color: var(--faint); text-align: center; }
-  .pair.add input { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 14.5px; min-width: 0; width: 100%; }
-  .pair.add button { padding: 9px 16px; }
+  .ph-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; max-height: 320px; overflow-y: auto; }
+  .ph-item { display: flex; align-items: flex-start; gap: 12px; padding: 11px 12px 11px 16px; border-radius: 14px; background: var(--fill); }
+  .ph-item .body { flex: 1; min-width: 0; }
+  .ph-item b { display: block; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+  .ph-item .meaning { display: block; margin-top: 2px; color: var(--soft); font-size: 13.5px; overflow-wrap: anywhere; }
+  .ph-item .meaning.none { color: var(--faint); }
+  .ph-item .del { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--soft); border-radius: 8px; padding: 3px 11px; font-size: 13px; cursor: pointer; }
+  .ph-item .del:hover { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); background: var(--bad-soft); }
+  .ph-eg { color: var(--faint); font-size: 13.5px; padding: 2px 0; }
+  .ph-add { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto; gap: 8px; margin-top: 12px; }
+  .ph-add input { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); font-size: 14.5px; min-width: 0; width: 100%; }
+  .ph-add button { padding: 9px 16px; }
 
   /* ---- 用时记录（统计报表） ---- */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 22px; }
@@ -207,10 +204,8 @@
     .task .mins { grid-area: m; } .task select { grid-area: st; justify-self: end; }
     .ph-form { grid-template-columns: 1fr 1fr; } .ph-form button { grid-column: 1 / -1; }
     .stats { grid-template-columns: 1fr; }
-    .pair.add { grid-template-columns: 1fr; gap: 8px; }
-    .pair.add .to { display: none; }
-    .pair.add button { width: 100%; }
-    .ph-list .pair { grid-template-columns: minmax(0, 1fr) 16px minmax(0, 1.3fr) 26px; gap: 8px; }
+    .ph-add { grid-template-columns: 1fr; }
+    .ph-add button { width: 100%; }
     .dur .recent-col { display: none; }
   }
 </style>
@@ -262,9 +257,8 @@
           <h3>短语库</h3>
           <p class="hint">老师的简写、孩子的说法，告诉 AI 它是什么意思。整理作业时会照原样保留，并按意思理解。</p>
           <div class="ph-list" id="ph-terms"><div class="ph-eg">读取中…</div></div>
-          <div class="pair add">
+          <div class="ph-add">
             <input id="t-text" placeholder="简写或说法，如：家默" aria-label="短语">
-            <span class="to">→</span>
             <input id="t-meaning" placeholder="意思（可不填），如：回家默写" aria-label="意思">
             <button class="main" id="t-add">添加</button>
           </div>
@@ -530,8 +524,8 @@ $("#log-refresh").onclick = loadTurns;
 function renderPhrases(items) {
   const list = items.filter((p) => p.kind !== "fix");   // 内置的“纠错”替换由程序自己用，不在页面上维护
   $("#ph-terms").innerHTML = list.map((p) =>
-    `<div class="pair"><b>${esc(p.text)}</b><span class="to">→</span><span class="v${p.meaning ? "" : " none"}">${esc(p.meaning || "原样保留")}</span><button data-ph="${esc(p.id)}" title="删除">✕</button></div>`
-  ).join("") || '<div class="ph-eg">还没有。例如：家默 → 回家默写</div>';
+    `<div class="ph-item"><div class="body"><b>${esc(p.text)}</b><span class="meaning${p.meaning ? "" : " none"}">${esc(p.meaning || "原样保留")}</span></div><button class="del" data-ph="${esc(p.id)}">删除</button></div>`
+  ).join("") || '<div class="ph-eg">还没有。例如：家默，意思是回家默写。</div>';
 }
 async function loadPhrases() {
   try { renderPhrases((await api("/api/phrases")).items); }
