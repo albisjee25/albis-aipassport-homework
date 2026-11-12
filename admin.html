@@ -6,177 +6,286 @@
 <title>作业助手 · 家长后台</title>
 <style>
   :root {
-    --bg: #eef2f7; --card: #ffffff; --ink: #1f2a37; --soft: #6b7787; --line: #dfe5ee;
-    --shell: #c9d6e6; --visor: #18202b; --eye: #f5d33f; --lamp: #e2483d; --ok: #2f9e6b;
+    color-scheme: light dark;
+    --bg: #f5f5f7; --card: #ffffff; --ink: #1d1d1f; --soft: #6e6e73; --faint: #a1a1a6;
+    --line: #e8e8ed; --fill: #f2f2f5; --fill-2: #ebebf0;
+    --accent: #1f55a0; --accent-soft: #e8f0fb; --sky: #80c0e0;
+    --ok: #2f9e6b; --warn: #b7791f; --warn-soft: #fff4d6; --bad: #d93b30; --bad-soft: #fdecea;
     --math: #3d7be0; --chinese: #d9534f; --english: #8a5cd6; --other: #7a8594;
-    --radius: 14px;
+    --radius: 22px; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 28px rgba(31,85,160,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101114; --card: #1b1c20; --ink: #f2f2f4; --soft: #9a9ba3; --faint: #6b6c73;
+      --line: #2a2b31; --fill: #24252a; --fill-2: #2d2e34;
+      --accent: #5b92e0; --accent-soft: #1d2a40; --sky: #3d7ea6;
+      --ok: #3fbf88; --warn: #e0a84a; --warn-soft: #3a2f16; --bad: #ff6b5e; --bad-soft: #3a1d1b;
+      --shadow: 0 1px 2px rgba(0,0,0,.3);
+    }
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--ink);
-         font: 15px/1.5 -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; }
-  header { display: flex; align-items: center; gap: 14px; padding: 18px 28px;
-           background: var(--card); border-bottom: 1px solid var(--line); }
-  .bot { width: 46px; height: 40px; background: var(--shell); border-radius: 10px 10px 8px 8px;
-         position: relative; flex: none; }
-  .bot::before { content: ""; position: absolute; left: 17px; top: -7px; width: 12px; height: 7px;
-                 background: var(--lamp); border-radius: 3px 3px 0 0; }
-  .bot .visor { position: absolute; left: 7px; right: 7px; top: 12px; height: 17px; background: var(--visor);
-                border-radius: 5px; display: flex; justify-content: center; align-items: center; gap: 6px; }
-  .bot .visor i { width: 9px; height: 6px; background: var(--eye); border-radius: 2px;
-                  animation: blink 5s infinite; }
-  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
-  header h1 { font-size: 19px; margin: 0; }
-  header .sub { color: var(--soft); font-size: 13px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+         font: 15px/1.55 -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* ---- 顶栏 ---- */
+  header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px;
+           padding: 12px max(24px, calc(50% - 376px)); background: color-mix(in srgb, var(--bg) 82%, transparent);
+           backdrop-filter: saturate(1.6) blur(16px); border-bottom: 1px solid var(--line); }
+  header svg { width: 34px; height: auto; flex: none; image-rendering: pixelated; }
+  header h1 { font-size: 17px; font-weight: 650; margin: 0; letter-spacing: .01em; }
+  header .sub { color: var(--soft); font-size: 12.5px; line-height: 1.3; }
   header .spacer { flex: 1; }
-  .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: #e9f6ef; color: var(--ok); }
-  .pill.bad { background: #fdecea; color: var(--lamp); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 4px 11px; border-radius: 99px;
+          background: var(--fill); color: var(--soft); }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .pill.bad::before { background: var(--bad); }
+  a.link { color: var(--soft); font-size: 13px; text-decoration: none; padding: 4px 8px; border-radius: 8px; }
+  a.link:hover { background: var(--fill); color: var(--ink); }
 
-  main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr); gap: 22px;
-         padding: 22px 28px 40px; max-width: 1240px; margin: 0 auto; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
-  section { background: var(--card); border-radius: var(--radius); padding: 20px 22px;
-            box-shadow: 0 1px 2px rgba(20, 40, 70, .05); }
-  main > div { display: flex; flex-direction: column; gap: 22px; }   /* gap ignores hidden sections */
-  h2 { font-size: 16px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .hint { color: var(--soft); font-size: 13px; margin: 0 0 14px; }
+  main { max-width: 800px; margin: 0 auto; padding: 24px 24px 56px; }
+  .tabs { display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 20px; background: var(--fill-2); border-radius: 12px; }
+  .tabs button { border: 0; background: none; padding: 7px 20px; border-radius: 9px; cursor: pointer; color: var(--soft); font-weight: 500; }
+  .tabs button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .page { display: none; }
+  .page.on { display: block; }
+  .test-only [data-page="main"], .main-only [data-page="test"] { display: none; }
 
-  .progress { display: flex; align-items: center; gap: 12px; margin: 6px 0 16px; color: var(--soft); font-size: 13px; }
-  .bar { flex: 1; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
-  .bar b { display: block; height: 100%; background: var(--ok); width: 0; transition: width .4s; }
+  section.card { background: var(--card); border-radius: var(--radius); padding: 26px 28px; box-shadow: var(--shadow); }
+  section.card + section.card { margin-top: 20px; }
+  .card-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+  h2 { font-size: 20px; font-weight: 650; margin: 0; letter-spacing: .01em; }
+  .card-head .right { margin-left: auto; }
+  .hint { color: var(--soft); font-size: 13.5px; margin: 4px 0 16px; }
 
-  .task { display: grid; grid-template-columns: 26px 54px minmax(0, 1fr) 92px 86px 76px; align-items: center;
-          gap: 10px; padding: 10px 6px; border-top: 1px solid var(--line); }
-  .task:first-child { border-top: 0; }
-  .task.done .title { color: var(--soft); text-decoration: line-through; }
-  .task.doing { background: #fffbe8; border-radius: 10px; }
-  .num { color: var(--soft); font-variant-numeric: tabular-nums; text-align: right; }
-  .subj { font-size: 12px; padding: 2px 0; border-radius: 6px; color: #fff; text-align: center; }
-  .subj.数学 { background: var(--math); } .subj.语文 { background: var(--chinese); }
-  .subj.英语 { background: var(--english); } .subj.其他 { background: var(--other); }
-  .title { border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; font: inherit; width: 100%;
-           background: transparent; color: inherit; }
-  .title:hover, .title:focus { border-color: var(--line); background: #fafbfd; outline: none; }
-  .meta { font-size: 12px; color: var(--soft); padding-left: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
-  .tag { background: #f0f3f7; border-radius: 5px; padding: 0 6px; }
-  .tag.opt { background: #fff4d6; color: #9a6b00; }
-  .tag.hist { background: #e6f4ec; color: #1f7a4d; }
-  .tag.real { background: #e8effb; color: #2c5aa0; }
-  .dur { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .dur th, .dur td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  .dur th { color: var(--soft); font-weight: 500; }
-  .dur small { color: var(--soft); }
-  .mins { display: flex; align-items: center; gap: 4px; color: var(--soft); font-size: 13px; }
-  .mins input { width: 52px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 8px; font: inherit; text-align: center; }
-  select.status { border: 1px solid var(--line); border-radius: 8px; padding: 4px; font: inherit; background: #fff; }
-  .ops { display: flex; gap: 2px; justify-content: flex-end; }
-  .ops button { border: 0; background: none; cursor: pointer; color: var(--soft); padding: 4px 5px; border-radius: 6px; font-size: 14px; }
-  .ops button:hover { background: #f0f3f7; color: var(--ink); }
-  .ops button.del:hover { background: #fdecea; color: var(--lamp); }
-  .empty { text-align: center; color: var(--soft); padding: 34px 0 26px; }
+  /* ---- 今日作业：进度 ---- */
+  .progress { display: flex; align-items: center; gap: 14px; margin: 14px 0 18px; font-size: 13.5px; color: var(--soft); }
+  .progress b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar { flex: 1; height: 8px; background: var(--fill-2); border-radius: 99px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, var(--sky), var(--accent)); transition: width .4s; }
 
-  .row { display: flex; gap: 8px; margin-top: 14px; }
-  input.text { flex: 1; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font: inherit; }
-  button.main { border: 0; background: var(--ink); color: #fff; border-radius: 10px; padding: 9px 16px;
-                font: inherit; cursor: pointer; white-space: nowrap; }
-  button.main:disabled { opacity: .5; cursor: wait; }
-  button.ghost { border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 8px 14px;
-                 font: inherit; cursor: pointer; color: var(--soft); }
-  button.ghost:hover { color: var(--lamp); border-color: #f3c4bf; }
-
-  .drop { border: 2px dashed var(--shell); border-radius: var(--radius); padding: 28px 16px; text-align: center;
-          cursor: pointer; transition: background .2s, border-color .2s; color: var(--soft); }
-  .drop.over { background: #f3f7fc; border-color: var(--math); }
-  .drop strong { color: var(--ink); display: block; font-size: 15px; margin-bottom: 4px; }
-  .drop .thumbs { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-  .drop .thumbs img { height: 74px; border-radius: 6px; border: 1px solid var(--line); }
-
-  .status-line { margin-top: 12px; font-size: 13px; min-height: 20px; color: var(--soft); }
-  .status-line.err { color: var(--lamp); }
+  /* ---- 截图上传（有作业时收成一条，没作业时是主角） ---- */
+  .drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
+          border: 1.5px dashed color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 16px; padding: 34px 16px;
+          cursor: pointer; color: var(--soft); background: color-mix(in srgb, var(--accent-soft) 45%, transparent);
+          transition: background .2s, border-color .2s; }
+  .drop:hover, .drop.over { background: var(--accent-soft); border-color: var(--accent); }
+  .drop .big { font-size: 17px; font-weight: 600; color: var(--ink); }
+  .drop .how { font-size: 13.5px; }
+  .drop .compact-line { display: none; font-size: 14px; }
+  .drop .compact-line b { color: var(--accent); font-weight: 600; }
+  .drop.compact { flex-direction: row; padding: 12px 16px; border-radius: 12px; }
+  .drop.compact .big, .drop.compact .how { display: none; }
+  .drop.compact .compact-line { display: inline; }
+  .drop .thumbs { display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .drop .thumbs:empty { display: none; }
+  .drop .thumbs img { height: 64px; border-radius: 8px; border: 1px solid var(--line); }
+  .status-line { margin-top: 10px; font-size: 13px; min-height: 18px; color: var(--soft); }
+  .status-line:empty { display: none; }
+  .status-line.err { color: var(--bad); }
   .working { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 6px; }
-  .working i { width: 6px; height: 6px; border-radius: 2px; background: var(--eye); animation: scan 1s infinite; }
+  .working i { width: 6px; height: 6px; border-radius: 2px; background: #f5d33f; animation: scan 1s infinite; }
   .working i:nth-child(2) { animation-delay: .15s; } .working i:nth-child(3) { animation-delay: .3s; }
   @keyframes scan { 50% { opacity: .2; transform: translateY(-2px); } }
 
-  .chat { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow: auto; }
-  .bubble { padding: 8px 12px; border-radius: 12px; max-width: 88%; font-size: 14px; }
-  .bubble.kid { align-self: flex-end; background: #e7f0fd; }
-  .bubble.bot { align-self: flex-start; background: var(--visor); color: var(--eye); }
+  /* ---- 作业清单 ---- */
+  #list { margin-top: 8px; }
+  .task { display: grid; grid-template-columns: 22px 40px minmax(0, 1fr) 88px 92px 78px; align-items: center; gap: 10px;
+          padding: 11px 10px; margin: 0 -10px; border-radius: 12px; }
+  .task + .task { background: linear-gradient(var(--line), var(--line)) 10px 0 / calc(100% - 20px) 1px no-repeat; }
+  .task:hover { background-color: var(--fill); }
+  .task.done .title { color: var(--faint); text-decoration: line-through; }
+  .task.doing { background: var(--accent-soft); }
+  .task.doing + .task { background-image: none; }
+  .num { color: var(--faint); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+  .subj { font-size: 13px; font-weight: 600; height: 28px; line-height: 28px; border-radius: 9px; color: #fff; text-align: center; }
+  .subj.数学 { background: var(--math); } .subj.语文 { background: var(--chinese); }
+  .subj.英语 { background: var(--english); } .subj.其他 { background: var(--other); }
+  .title { border: 1px solid transparent; border-radius: 8px; padding: 3px 6px; margin-left: -7px; width: calc(100% + 7px);
+           background: transparent; font-size: 15.5px; font-weight: 500; }
+  .title:hover { border-color: var(--line); }
+  .title:focus { border-color: var(--accent); background: var(--card); outline: none; }
+  .meta { font-size: 12px; color: var(--soft); display: flex; gap: 6px; flex-wrap: wrap; min-height: 18px; }
+  .tag { background: var(--fill-2); border-radius: 6px; padding: 0 7px; }
+  .tag.opt { background: var(--warn-soft); color: var(--warn); }
+  .tag.hist { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .tag.real { background: var(--accent-soft); color: var(--accent); }
+  .mins { display: flex; align-items: center; gap: 5px; color: var(--soft); font-size: 13px; }
+  .mins input { width: 54px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--card); text-align: center; }
+  select { border: 1px solid var(--line); border-radius: 9px; padding: 5px 6px; background: var(--card); }
+  input:focus, select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 0; }
+  .ops { display: flex; gap: 0; justify-content: flex-end; opacity: .35; transition: opacity .15s; }
+  .task:hover .ops, .ops:focus-within { opacity: 1; }
+  .ops button { border: 0; background: none; cursor: pointer; color: var(--soft); padding: 4px 7px; border-radius: 7px; font-size: 14px; }
+  .ops button:hover { background: var(--fill-2); color: var(--ink); }
+  .ops button.del:hover { background: var(--bad-soft); color: var(--bad); }
+  .empty { text-align: center; color: var(--soft); padding: 28px 0; }
+
+  .add-row { display: flex; gap: 8px; margin-top: 16px; padding-top: 18px; border-top: 1px solid var(--line); }
+  input.text { flex: 1; min-width: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  button.main { border: 0; background: var(--accent); color: #fff; border-radius: 12px; padding: 10px 20px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  button.main:hover { filter: brightness(1.08); }
+  button.main:disabled { opacity: .5; cursor: wait; }
+  button.ghost { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 6px 13px; cursor: pointer; color: var(--soft); font-size: 13.5px; }
+  button.ghost:hover { color: var(--ink); border-color: var(--faint); }
+  button.ghost.danger:hover { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+  .foot-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+
+  /* ---- 短语库：今日作业里的次要功能，默认收起 ---- */
+  details.more { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 4px; }
+  details.more > summary { display: flex; align-items: center; gap: 8px; list-style: none; cursor: pointer; padding: 12px 0;
+                           color: var(--soft); font-size: 14px; user-select: none; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "›"; display: inline-block; width: 12px; color: var(--faint); transition: transform .15s; }
+  details.more[open] > summary::before { transform: rotate(90deg); }
+  details.more > summary b { color: var(--ink); font-weight: 600; }
+  details.more > summary .count { background: var(--fill-2); border-radius: 99px; padding: 0 8px; font-size: 12px; }
+  .ph { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+  .ph:first-child { border-top: 0; }
+  .ph .k { font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: var(--fill-2); color: var(--soft); flex: none; }
+  .ph .k.fix { background: var(--bad-soft); color: var(--bad); }
+  .ph .x { color: var(--soft); font-size: 13px; flex: 1; }
+  .ph button { border: 0; background: none; color: var(--faint); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .ph button:hover { color: var(--bad); background: var(--bad-soft); }
+  .ph-form { display: grid; grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 10px; align-items: end; margin-top: 12px; }
+  .ph-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--soft); }
+  .ph-form select, .ph-form input { padding: 9px 10px; border-radius: 10px; font-size: 14.5px; color: var(--ink); }
+  .ph-form input { border: 1px solid var(--line); background: var(--card); }
+
+  /* ---- 用时记录（统计报表） ---- */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 16px 0 22px; }
+  .stat { background: var(--fill); border-radius: 16px; padding: 14px 16px; }
+  .stat small { display: block; color: var(--soft); font-size: 12.5px; }
+  .stat b { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat b span { font-size: 13px; font-weight: 500; color: var(--soft); margin-left: 3px; }
+  .dur { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .dur th { text-align: left; color: var(--soft); font-weight: 500; font-size: 12.5px; padding: 0 10px 8px 0; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  .dur td { padding: 14px 10px 14px 0; vertical-align: top; border-bottom: 1px solid var(--line); }
+  .dur tr:last-child td { border-bottom: 0; }
+  .dur .cat { font-weight: 600; font-size: 15px; }
+  .dur .chip { display: inline-block; margin-top: 3px; font-size: 11.5px; font-weight: 600; color: #fff; border-radius: 6px; padding: 0 7px; }
+  .dur .chip.数学 { background: var(--math); } .dur .chip.语文 { background: var(--chinese); }
+  .dur .chip.英语 { background: var(--english); } .dur .chip.其他 { background: var(--other); }
+  .dur .n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .avg { min-width: 130px; }
+  .avg b { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+  .avg i { display: block; height: 6px; margin-top: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--sky), var(--accent)); }
+  .est { white-space: nowrap; font-weight: 600; color: var(--ok); }
+  .est.none { color: var(--faint); font-weight: 400; font-size: 13px; }
+  .recent { color: var(--soft); font-size: 12.5px; line-height: 1.7; }
+  .recent div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+
+  /* ---- 测试页 ---- */
+  .chat { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow: auto; }
+  .bubble { padding: 9px 14px; border-radius: 16px; max-width: 88%; font-size: 14.5px; }
+  .bubble.kid { align-self: flex-end; background: var(--accent-soft); }
+  .bubble.bot { align-self: flex-start; background: #18202b; color: #f5d33f; }
   .bubble small { display: block; color: var(--soft); font-size: 11px; margin-top: 2px; }
   .bubble.bot small { color: #8d97a5; }
-  .file { font-size: 13px; color: var(--soft); margin-top: 10px; }
-  .turn { border-top: 1px solid var(--line); padding: 12px 0; font-size: 14px; }
+  .file { font-size: 13px; color: var(--soft); margin-top: 12px; }
+  .turn { border-top: 1px solid var(--line); padding: 14px 0; font-size: 14px; }
   .turn:first-child { border-top: 0; }
   .turn .top { display: flex; align-items: center; gap: 8px; color: var(--soft); font-size: 12px; }
-  .turn .top .q { margin-left: auto; padding: 1px 8px; border-radius: 99px; background: #e9f6ef; color: var(--ok); }
-  .turn .top .q.bad { background: #fff4d6; color: #9a6b00; }
+  .turn .top .q { margin-left: auto; padding: 1px 9px; border-radius: 99px; background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+  .turn .top .q.bad { background: var(--warn-soft); color: var(--warn); }
   .turn audio { width: 100%; height: 32px; margin: 6px 0; }
   .turn .heard { font-size: 15px; }
   .turn .raw { color: var(--soft); font-size: 12px; }
   .turn .did { color: var(--soft); font-size: 13px; margin-top: 2px; }
-  .turn .metrics { color: var(--soft); font-size: 11px; margin-top: 2px; }
-  .ph { display: flex; gap: 8px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; }
-  .ph:first-child { border-top: 0; }
-  .ph .k { font-size: 11px; padding: 1px 6px; border-radius: 5px; background: #f0f3f7; color: var(--soft); flex: none; }
-  .ph .k.fix { background: #fdecea; color: var(--lamp); }
-  .ph .x { color: var(--soft); font-size: 12px; flex: 1; }
-  .ph button { border: 0; background: none; color: var(--soft); cursor: pointer; }
-  .ph button:hover { color: var(--lamp); }
-  a.nav { text-decoration: none; color: inherit; }
-  a.nav:hover { filter: brightness(0.95); }
-  .test-only [data-page="main"], .main-only [data-page="test"] { display: none; }
-  footer { text-align: center; color: var(--soft); font-size: 12px; padding-bottom: 24px; }
+  .turn .metrics { color: var(--faint); font-size: 11px; margin-top: 2px; }
+
+  footer { text-align: center; color: var(--faint); font-size: 12px; padding: 0 24px 32px; }
+
+  @media (max-width: 640px) {
+    main { padding: 16px 14px 40px; }
+    section.card { padding: 20px 18px; }
+    .task { grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "s t o" ". m st"; row-gap: 6px; }
+    .task .num { display: none; }
+    .task .subj { grid-area: s; } .task .tw { grid-area: t; } .task .ops { grid-area: o; opacity: 1; }
+    .task .mins { grid-area: m; } .task select { grid-area: st; justify-self: end; }
+    .ph-form { grid-template-columns: 1fr 1fr; } .ph-form button { grid-column: 1 / -1; }
+    .stats { grid-template-columns: 1fr; }
+    .dur .recent-col { display: none; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <div class="bot"><div class="visor"><i></i><i></i></div></div>
+  <svg id="logo" viewBox="0 0 22 28" shape-rendering="crispEdges" aria-hidden="true"></svg>
   <div>
-    <h1 id="title">作业助手 · 家长后台</h1>
+    <h1 id="title">作业助手</h1>
     <div class="sub" id="day">—</div>
   </div>
   <div class="spacer"></div>
-  <a class="pill nav" id="nav" href="/test">测试页</a>
+  <a class="link" id="nav" href="/test">测试页</a>
   <span class="pill" id="health">连接中…</span>
 </header>
 
 <main>
-  <div>
-    <section>
-      <h2>今日作业</h2>
-      <div class="progress"><span id="progress-text">—</span><div class="bar"><b id="bar"></b></div><span id="minutes-left"></span></div>
-      <div id="list"></div>
-      <div class="row">
-        <input class="text" id="new-title" placeholder="手动加一项，例如：练字一页">
-        <input class="text" id="new-min" type="number" min="1" max="180" value="15" style="flex:0 0 74px">
-        <button class="main" id="add">添加</button>
-      </div>
-      <div class="row" style="justify-content:flex-end"><button class="ghost" id="clear">清空今天的清单</button></div>
-    </section>
+  <div data-page="main">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-today" data-tab="today" aria-selected="true">今日作业</button>
+      <button role="tab" id="tab-stats" data-tab="stats" aria-selected="false">用时记录</button>
+    </div>
+
+    <!-- 分页一：今日作业（上传截图是它的入口，短语库是它的次要设置） -->
+    <div class="page on" id="page-today">
+      <section class="card">
+        <div class="card-head"><h2>今日作业</h2></div>
+        <div class="progress"><span id="progress-text">—</span><div class="bar"><i id="bar"></i></div><span id="minutes-left"></span></div>
+
+        <div class="drop" id="drop">
+          <span class="big">把老师发的作业截图拖到这里</span>
+          <span class="how">或点击选择，或直接按 ⌘V 粘贴。一次最多 6 张，同一天的作业会自动去重。</span>
+          <span class="compact-line">＋ <b>添加作业</b>：拖入、点击选择或 ⌘V 粘贴截图</span>
+          <div class="thumbs" id="thumbs"></div>
+        </div>
+        <input type="file" id="file" accept="image/*" multiple hidden>
+        <div class="status-line" id="shot-status"></div>
+
+        <div id="list"></div>
+
+        <div class="add-row">
+          <input class="text" id="new-title" placeholder="手动加一项，例如：练字一页">
+          <input class="text" id="new-min" type="number" min="1" max="180" value="15" style="flex:0 0 76px;text-align:center" title="分钟">
+          <button class="main" id="add">添加</button>
+        </div>
+        <div class="foot-actions"><button class="ghost danger" id="clear">清空今天的清单</button></div>
+
+        <details class="more" id="phrase-box">
+          <summary><b>短语库</b><span class="count" id="ph-count">0</span><span>让 AI 听懂老师的简写、纠正常听错的词</span></summary>
+          <p class="hint" style="margin-top:0"><b>纠错</b>：识别常听错的词，识别后自动替换（例如“音一中”→“英译中”）。<b>术语</b>：老师的简写，AI 会照原样保留（例如“家默”）。</p>
+          <div id="phrases"></div>
+          <div class="ph-form">
+            <label>类型<select id="ph-kind"><option value="term">术语</option><option value="fix">纠错</option></select></label>
+            <label>正确写法<input id="ph-text" placeholder="如：一课一练"></label>
+            <label><span id="ph-extra-label">含义（可不填）</span><input id="ph-extra" placeholder="如：每天一课的练习册"></label>
+            <button class="main" id="ph-add">添加</button>
+          </div>
+          <div class="status-line" id="ph-status"></div>
+        </details>
+      </section>
+    </div>
+
+    <!-- 分页二：用时记录（统计报表） -->
+    <div class="page" id="page-stats">
+      <section class="card">
+        <div class="card-head"><h2>用时记录</h2><button class="ghost right" id="dur-refresh">刷新</button></div>
+        <p class="hint">孩子在设备上标“做完了”时，记下每项作业的实际用时（暂停不算）。</p>
+        <div id="durations"><div class="empty">还没有用时记录</div></div>
+        <details class="more">
+          <summary>怎么算的</summary>
+          <p class="hint" style="margin-top:0">每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
+        </details>
+      </section>
+    </div>
   </div>
 
-  <div>
-    <section data-page="main">
-      <h2>连接设备</h2>
-      <div id="setup" style="font-size:14px;line-height:1.9">读取中…</div>
-      <div class="file">设备和这台电脑要在同一个 Wi-Fi。令牌只给自己的设备用，别发到群里。</div>
-    </section>
-
-    <section data-page="main">
-      <h2>上传作业截图</h2>
-      <p class="hint">把家长群里老师发的作业截图拖进来，或直接按 ⌘V 粘贴。AI 会整理成清单，并马上发到孩子的设备上。</p>
-      <div class="drop" id="drop">
-        <strong>拖入截图 / 点击选择 / ⌘V 粘贴</strong>
-        一次最多 6 张，同一天的作业会自动去重
-        <div class="thumbs" id="thumbs"></div>
-      </div>
-      <input type="file" id="file" accept="image/*" multiple hidden>
-      <div class="status-line" id="shot-status"></div>
-    </section>
-
-    <section data-page="test">
-      <h2>试试和小机器人说话</h2>
+  <div data-page="test">
+    <section class="card">
+      <div class="card-head"><h2>试试和小机器人说话</h2></div>
       <p class="hint">不用拿设备，在这里模拟孩子说的话，看小机器人会怎么改清单、怎么回答，并听到它的声音。注意：这里的操作会改动真实清单。有作业在计时时按“计时页”的规则处理，否则按“清单页”的规则（不能用语音改时间）。</p>
-      <div class="row" style="margin-top:0">
+      <div style="display:flex;gap:8px">
         <input class="text" id="say" placeholder="例如：现在先做数学练习册 / 再给我五分钟">
         <button class="main" id="say-btn">说</button>
       </div>
@@ -184,31 +293,10 @@
       <div class="chat" id="chat"></div>
     </section>
 
-    <section data-page="test">
-      <h2>最近的语音对话 <button class="ghost" id="log-refresh" style="margin-left:auto;padding:3px 10px;font-size:13px">刷新</button></h2>
+    <section class="card">
+      <div class="card-head"><h2>最近的语音对话</h2><button class="ghost right" id="log-refresh">刷新</button></div>
       <p class="hint">孩子在设备上每说一次话，这里都会留一条：可以回放原始录音，对照“听到的文字”，判断是录音不清楚还是识别错了。只保存在这台 Mac 上，最多保留最近 30 条。</p>
       <div id="turns"><div class="empty">还没有语音对话</div></div>
-    </section>
-
-    <section data-page="main">
-      <h2>用时记录 <button class="ghost" id="dur-refresh" style="margin-left:auto;padding:3px 10px;font-size:13px">刷新</button></h2>
-      <p class="hint">每项作业在设备上标“做完了”时记下实际用时（暂停不算）。每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
-      <div id="durations"><div class="empty">还没有用时记录</div></div>
-    </section>
-
-    <section data-page="main">
-      <h2>作业短语库</h2>
-      <p class="hint"><b>纠错</b>：识别常听错的词，识别后自动替换（例如“音一中”→“英译中”）。<b>术语</b>：老师的简写，AI 会照原样保留（例如“家默”）。</p>
-      <div id="phrases"></div>
-      <div class="row">
-        <select id="ph-kind" class="status"><option value="term">术语</option><option value="fix">纠错</option></select>
-        <input class="text" id="ph-text" placeholder="正确写法，如：一课一练" style="flex:1">
-      </div>
-      <div class="row" style="margin-top:6px">
-        <input class="text" id="ph-extra" placeholder="术语：含义（可不填）；纠错：常被听成什么，用逗号分隔">
-        <button class="main" id="ph-add">添加</button>
-      </div>
-      <div class="status-line" id="ph-status"></div>
     </section>
   </div>
 </main>
@@ -228,6 +316,16 @@ if (TEST) {
 }
 let state = null, editing = false, busy = false;
 
+// 页头的小机器人：和设备、插件页是同一份像素图
+(() => {
+  const ART = ['......KKKKKKKK........','......KRRRRRRK........','......KRRRRRRK........','..KKKKKKKKKKKKKKKKK...','.KWWWWgWWWWWWWWWWWWK..','KWWWWWWgWWWWWWWWWWWWK.','KWWWWWWgWWWWWWWWWWWWK.','KWWWWWWgWWWWWWWWWWWWK.','KWWWWWWgWWWWWWWWWWWWWK','KWWWWWWgWWWWWWWWWWWWWK','.KKKWWWgWWWWWWWWWWWWWK','....KWWgWWKKKKKKKKKWWK','.....KWgWWKKKKKKKKKWWK','....KKWgWWKYYYKYYYKWWK','...K..KgWWKYYYKYYYKWWK','..KKKKKgWWKKKKKKKKKWWK','..KWWWKKKKKKKKKKKKKKK.','..KggWWKWWWWWWWWWWWK..','..KggWWWKWWWWWWWWWWWK.','..KKWWWWKBBBBBBBBBBBB.','..KWKWWggKbbBbbBbbBbbB','..KWWKKggKbbBbbBbbBbbB','..KggggKKBbbBbbBbbBbbB','...KggggBBBBBBBBBBBBB.','....KWWWWWWWWWWWWK....','.....KKKKKKKKKKKK.....','........KggggKK.......','.........KKKKK........'];
+  const INK = { K: '#23272E', W: '#F4F6F8', g: '#A7B2C0', R: '#E2483D', Y: '#111418', B: '#1F55A0', b: '#80C0E0' };
+  let out = "";
+  ART.forEach((row, y) => [...row].forEach((c, x) => { if (c !== ".") out += `<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${c === "R" && y === 1 && (x === 9 || x === 10) ? "#FFB347" : INK[c]}"/>`; }));
+  for (const ex of [11, 15]) for (const [dx, dy, c] of [[0,1,"#FFF4B0"],[1,1],[2,1],[0,2],[1,2],[2,2]]) out += `<rect x="${ex + dx}" y="${12 + dy}" width="1.02" height="1.02" fill="${c || "#F6D63C"}"/>`;
+  $("#logo").innerHTML = out;
+})();
+
 async function api(path, opts = {}) {
   const r = await fetch(path, { headers: opts.body && !(opts.body instanceof FormData) ? { "Content-Type": "application/json" } : {}, ...opts });
   const data = await r.json().catch(() => ({}));
@@ -236,7 +334,19 @@ async function api(path, opts = {}) {
 }
 const json = (method, body) => ({ method, body: JSON.stringify(body) });
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SUBJ = { 语文: "语", 数学: "数", 英语: "外", 其他: "其" };
 const SRC = { screenshot: "老师截图", voice: "孩子口述", admin: "家长添加" };
+
+// ---- 分页：今日作业 / 用时记录 ----
+function showTab(name) {
+  if (name !== "stats") name = "today";
+  for (const t of ["today", "stats"]) {
+    $("#page-" + t).classList.toggle("on", t === name);
+    $("#tab-" + t).setAttribute("aria-selected", String(t === name));
+  }
+  if (name === "stats") loadDurations();
+}
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => { history.replaceState(null, "", b.dataset.tab === "stats" ? "#stats" : "#"); showTab(b.dataset.tab); }));
 
 function render(s) {
   state = s;
@@ -244,24 +354,22 @@ function render(s) {
   $("#day").textContent = `${d.getMonth() + 1} 月 ${d.getDate()} 日 · 星期${"日一二三四五六"[d.getDay()]}`;
   const required = s.tasks.filter((t) => !t.optional);
   const done = required.filter((t) => t.status === "done").length;
-  $("#progress-text").textContent = required.length ? `完成 ${done} / ${required.length}` : "还没有作业";
+  $("#progress-text").innerHTML = required.length ? `完成 <b>${done} / ${required.length}</b>` : "今天还没有作业";
   $("#bar").style.width = required.length ? `${(done / required.length) * 100}%` : "0";
   const left = s.tasks.filter((t) => t.status !== "done" && !t.optional).reduce((a, t) => a + t.minutes, 0);
   $("#minutes-left").textContent = left ? `剩余约 ${left} 分钟` : "";
-  if (!s.tasks.length) {
-    $("#list").innerHTML = `<div class="empty">今天还没有作业。<br>在右边上传家长群的作业截图试试。</div>`;
-    return;
-  }
+  $("#drop").classList.toggle("compact", s.tasks.length > 0);
+  if (!s.tasks.length) { $("#list").innerHTML = ""; return; }
   $("#list").innerHTML = s.tasks.map((t, i) => `
     <div class="task ${t.status}" data-id="${t.id}">
       <span class="num">${i + 1}</span>
-      <span class="subj ${esc(t.subject)}">${esc(t.subject)}</span>
-      <div>
+      <span class="subj ${esc(t.subject)}">${SUBJ[t.subject] || "其"}</span>
+      <div class="tw">
         <input class="title" value="${esc(t.title)}" data-f="title" maxlength="32">
         <div class="meta"><span class="tag">${SRC[t.source] || ""}</span>${t.optional ? '<span class="tag opt">选做</span>' : ""}${t.category ? `<span class="tag">${esc(t.category)}</span>` : ""}${t.minutes_from === "history" ? '<span class="tag hist" title="按这类作业最近的实际用时调整">按历史用时</span>' : ""}${t.actual_s ? `<span class="tag real">实际 ${Math.max(1, Math.round(t.actual_s / 60))} 分钟</span>` : ""}${t.note ? `<span>${esc(t.note)}</span>` : ""}</div>
       </div>
       <label class="mins"><input type="number" min="1" max="180" value="${t.minutes}" data-f="minutes">分钟</label>
-      <select class="status" data-f="status">
+      <select data-f="status">
         ${[["todo", "待做"], ["doing", "进行中"], ["done", "已完成"]].map(([v, l]) => `<option value="${v}" ${t.status === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
       <span class="ops">
@@ -415,18 +523,26 @@ async function loadTurns() {
   }).join("");
 }
 $("#log-refresh").onclick = loadTurns;
+
 // ---- phrase book ----
 function renderPhrases(items) {
+  $("#ph-count").textContent = items.length;
   $("#phrases").innerHTML = items.map((p) => `<div class="ph">
     <span class="k ${p.kind}">${p.kind === "fix" ? "纠错" : "术语"}</span><b>${esc(p.text)}</b>
     <span class="x">${p.kind === "fix" ? "常听成：" + esc((p.heard || []).join("、")) : esc(p.meaning || "")}</span>
-    <button data-ph="${esc(p.id)}" title="删除">✕</button></div>`).join("") || '<div class="empty">短语库是空的</div>';
+    <button data-ph="${esc(p.id)}" title="删除">✕</button></div>`).join("") || '<div class="empty" style="padding:14px 0">短语库是空的</div>';
 }
 async function loadPhrases() { try { renderPhrases((await api("/api/phrases")).items); } catch {} }
 $("#phrases").addEventListener("click", async (e) => {
   const id = e.target.dataset.ph;
   if (id && confirm("删除这条短语？")) renderPhrases((await api(`/api/phrases/${id}`, { method: "DELETE" })).items);
 });
+$("#ph-kind").onchange = () => {
+  const fix = $("#ph-kind").value === "fix";
+  $("#ph-extra-label").textContent = fix ? "常被听成什么（用逗号分隔）" : "含义（可不填）";
+  $("#ph-extra").placeholder = fix ? "如：音一中，因译中" : "如：每天一课的练习册";
+  $("#ph-text").placeholder = fix ? "如：英译中" : "如：一课一练";
+};
 $("#ph-add").onclick = async () => {
   const kind = $("#ph-kind").value, text = $("#ph-text").value.trim(), extra = $("#ph-extra").value.trim();
   if (!text) return $("#ph-text").focus();
@@ -437,32 +553,35 @@ $("#ph-add").onclick = async () => {
   } catch (err) { $("#ph-status").className = "status-line err"; $("#ph-status").textContent = err.message; }
 };
 loadPhrases();
-async function loadSetup() {
-  try {
-    const s = await api("/api/setup");
-    const copy = (t) => `<button class="ghost" style="padding:1px 8px;font-size:12px" onclick="navigator.clipboard.writeText('${t}').then(()=>{this.textContent='已复制'})">复制</button>`;
-    $("#setup").innerHTML = (s.lan.length ? s.lan : ["没找到局域网地址（没连 Wi-Fi？）"]).map((u) => `设备服务地址：<b>${esc(u)}</b> ${s.lan.length ? copy(u) : ""}`).join("<br>")
-      + `<br>设备令牌：<b>${esc(s.token)}</b> ${copy(s.token)}`;
-  } catch { $("#setup").textContent = "读不到设置"; }
-}
-loadSetup();
 
+// ---- 用时记录 ----
 async function loadDurations() {
   let r;
   try { r = await api("/api/durations"); } catch { return; }
-  if (!r.categories.length) { $("#durations").innerHTML = '<div class="empty">还没有用时记录</div>'; return; }
-  $("#durations").innerHTML = `<table class="dur"><tr><th>作业类型</th><th>次数</th><th>最近平均</th><th>新作业时长</th><th>最近几次</th></tr>${
-    r.categories.map((c) => `<tr><td>${esc(c.category)}<br><small>${esc(c.subject)}</small></td><td>${c.count}</td>
-      <td>${c.avg_min} 分钟</td><td>${c.estimate ? c.estimate + " 分钟" : "<small>记录不够</small>"}</td>
-      <td>${c.recent.map((x) => `<small>${esc(x.day.slice(5))} ${esc(x.title)} · ${x.min} 分</small>`).join("<br>")}</td></tr>`).join("")}</table>`;
+  if (!r.categories.length) { $("#durations").innerHTML = '<div class="empty">还没有用时记录。孩子在设备上标“做完了”后，这里就会出现统计。</div>'; return; }
+  const total = r.categories.reduce((a, c) => a + c.count, 0);
+  const ready = r.categories.filter((c) => c.estimate).length;
+  const max = Math.max(...r.categories.map((c) => c.avg_min), 1);
+  $("#durations").innerHTML = `
+    <div class="stats">
+      <div class="stat"><small>作业类型</small><b>${r.categories.length}<span>类</span></b></div>
+      <div class="stat"><small>用时记录</small><b>${total}<span>次</span></b></div>
+      <div class="stat"><small>已能自动设时长</small><b>${ready}<span>类</span></b></div>
+    </div>
+    <table class="dur"><tr><th>作业类型</th><th>次数</th><th>最近平均</th><th>新作业时长</th><th class="recent-col">最近几次</th></tr>${
+    r.categories.map((c) => `<tr>
+      <td><div class="cat">${esc(c.category)}</div><span class="chip ${esc(c.subject)}">${esc(c.subject)}</span></td>
+      <td class="n">${c.count}</td>
+      <td class="avg"><b>${c.avg_min} 分钟</b><i style="width:${Math.max(6, Math.round((c.avg_min / max) * 100))}%"></i></td>
+      <td>${c.estimate ? `<span class="est">${c.estimate} 分钟</span>` : '<span class="est none">记录不够</span>'}</td>
+      <td class="recent recent-col">${c.recent.map((x) => `<div title="${esc(x.title)}">${esc(x.day.slice(5))} ${esc(x.title)} · ${x.min} 分</div>`).join("")}</td></tr>`).join("")}</table>`;
 }
 $("#dur-refresh").onclick = loadDurations;
-loadDurations();
 
+showTab(location.hash === "#stats" ? "stats" : "today");
 loadTurns();
 // Refresh every 15 s, but never while a recording is playing.
 setInterval(() => { if (![...document.querySelectorAll("#turns audio")].some((a) => !a.paused)) loadTurns(); }, 15000);
-
 </script>
 </body>
 </html>
