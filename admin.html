@@ -420,7 +420,7 @@ $("#pair").addEventListener("click", async (e) => {
   const a = e.target.dataset.a, code = e.target.closest(".row")?.dataset.code;
   if (!a || !code) return;
   e.target.disabled = true;
-  try { await api("/api/pair/" + a, json("POST", { code })); } catch (err) { alert(err.message); }
+  try { await api("/api/pair/" + a, { ...json("POST", { code }), headers: { "Content-Type": "application/json", "X-HW-Pair": "1" } }); } catch (err) { alert(err.message); }
   loadPair();
 });
 loadPair();

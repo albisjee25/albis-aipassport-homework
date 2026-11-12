@@ -80,6 +80,16 @@ window.__ModuleLoader__.load({
 .hwh-warn .hwh-dot,.hwh-dot.hwh-warn{background:var(--dsw-alias-state-warn-primary,#F5A524)}
 .hwh-bad .hwh-dot,.hwh-dot.hwh-bad{background:var(--dsw-alias-state-error-primary,#E5484D)}
 
+/* 新设备请求连接 */
+.hwh-pair{margin-bottom:24px;padding:16px 20px;border-radius:20px;background:color-mix(in srgb,#F5A524 16%,var(--dsw-alias-bg-layer-1));border:1px solid color-mix(in srgb,#F5A524 45%,transparent)}
+.hwh-pair-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:4px 0}
+.hwh-pair-code{font:700 30px/1 ui-monospace,Menlo,monospace;letter-spacing:6px;padding:10px 16px;border-radius:12px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
+.hwh-pair-msg{flex:1;min-width:200px;display:flex;flex-direction:column;gap:2px}
+.hwh-pair-msg small{opacity:.7}
+.hwh-pair button{border:0;border-radius:12px;padding:10px 20px;font-size:15px;cursor:pointer;font-family:inherit}
+.hwh-pair-ok{background:#2F9E6B;color:#fff}
+.hwh-pair-no{background:transparent;color:inherit;opacity:.65}
+
 /* 主入口：机器人 + 打开家长后台 */
 .hwh-stage{position:relative;display:flex;align-items:center;gap:28px;padding:28px 32px;border-radius:24px;overflow:hidden;margin-bottom:40px;
   background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--hwh-sky) 22%,transparent),transparent 60%),var(--dsw-alias-bg-layer-1)}
@@ -188,7 +198,7 @@ window.__ModuleLoader__.load({
       return h('svg', { viewBox: `0 0 ${ART[0].length} ${ART.length}`, shapeRendering: 'crispEdges', role: 'img', 'aria-label': '小机器人' }, cells)
     }
 
-    // ---- 状态：每 5 秒读一次本机服务（只读，不含令牌）----
+    // ---- 状态：每 2 秒读一次本机服务（只读，不含令牌）----
     function useInfo() {
       const [state, setState] = React.useState({ status: 'checking' })
       const port = React.useMemo(() => Number(window.localStorage?.getItem('homework-helper.port')) || DEFAULT_PORT, [])
@@ -203,7 +213,7 @@ window.__ModuleLoader__.load({
           } catch { if (!stop) setState({ status: 'down' }) }
         }
         tick()
-        const t = setInterval(tick, 5000)
+        const t = setInterval(tick, 2000)
         return () => { stop = true; clearInterval(t) }
       }, [port])
       return { ...state, port }
@@ -218,6 +228,29 @@ window.__ModuleLoader__.load({
       chart: () => svg(18, h('path', { d: 'M4 20V10M10 20V4M16 20v-7M3 20h18' })),
       link: () => svg(18, h('path', { d: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1' })),
       chip: () => svg(18, h('rect', { x: 6, y: 6, width: 12, height: 12, rx: 2 }), h('path', { d: 'M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4' })),
+    }
+
+    // ---- 0. 新设备请求连接：设备屏幕上的 4 位码和这里一致，才点“允许”（出现时排在页面最上面） ----
+    function PairCard({ info, port, refresh }) {
+      const list = info?.pairing || []
+      const [err, setErr] = React.useState('')
+      if (!list.length) return null
+      const act = async (kind, code) => {
+        setErr('')
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/pair/${kind}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-HW-Pair': '1' }, body: JSON.stringify({ code }) })
+          if (!r.ok) throw new Error(String(r.status))
+          refresh?.()
+        } catch { setErr('这里没能完成操作，请打开家长后台（页面下方的按钮）在那里点“允许”。') }
+      }
+      return h('section', { className: 'hwh-pair', role: 'alert' }, list.map((p) =>
+        h('div', { key: p.code, className: 'hwh-pair-row' },
+          h('span', { className: 'hwh-pair-code' }, p.code),
+          h('div', { className: 'hwh-pair-msg' }, h('b', null, '有一台新设备请求连接'),
+            h('small', null, '看看设备屏幕上的 4 位数字，和这里一样才点“允许”；不认识的设备点“拒绝”。')),
+          h('button', { type: 'button', className: 'hwh-pair-ok', onClick: () => act('approve', p.code) }, '允许'),
+          h('button', { type: 'button', className: 'hwh-pair-no', onClick: () => act('deny', p.code) }, '拒绝'))),
+        err ? h('p', { className: 'hwh-hint' }, err) : null)
     }
 
     // ---- 1. 主入口：机器人 + 打开家长后台（家长日常都在后台里操作） ----
@@ -257,7 +290,7 @@ window.__ModuleLoader__.load({
         : info.device === undefined ? ['warn', '看不到', '正在运行的服务是旧版本，重启一次 DeepSeek Harness 后才会显示设备状态。']
         : d?.online ? ['ok', '在线', null, `${d.last_seen_s} 秒前联系过`]
         : d?.last_seen_s != null ? ['bad', `${ago(d.last_seen_s)}没联系`, `设备从 ${d.last_seen_at} 起没再联系电脑，头灯会变灰。`]
-        : ['warn', '还没连上过', '给设备通电、连好 Wi-Fi，几秒内会变成“在线”。']
+        : ['warn', '还没连上过', '给设备通电、连好 Wi-Fi；第一次连接时，设备屏幕会出现 4 位配对码，本页最上方会出现“允许”按钮。']
       const alerts = []
       if (status === 'down') alerts.push('作业助手服务没在运行。')
       if (up && !info.asr.ready) alerts.push(`语音识别${info.asr.note || '启动中'}。第一次使用要下载约 230MB 的模型，下载完才能说话。`)
@@ -267,7 +300,7 @@ window.__ModuleLoader__.load({
         h('small', null, label), h('b', null, kind != null ? h('i', { className: `hwh-dot${kind ? ` hwh-${kind}` : ''}` }) : null, value))
       const ok = canChat()
       return h('section', { className: 'hwh-sec' },
-        h('div', { className: 'hwh-h2' }, h('b', null, '运行状态'), h('span', null, '每 5 秒刷新')),
+        h('div', { className: 'hwh-h2' }, h('b', null, '运行状态'), h('span', null, '自动刷新')),
         h('div', { className: 'hwh-stats' },
           stat('服务', up ? 'ok' : status === 'checking' ? '' : 'bad', up ? '运行中' : status === 'checking' ? '检测中' : '没连上', up ? `本机 ${port} 端口` : null),
           stat('设备', device[0], device[1], device[3]),
@@ -301,6 +334,7 @@ window.__ModuleLoader__.load({
       return [
         h('div', { key: 'h', className: 'hwh-top' }, h(RobotIcon, { size: 20 }), h('h1', null, '作业助手'),
           h('span', { className: `hwh-pill ${pill[0]}` }, h('i', { className: 'hwh-dot' }), pill[1])),
+        h(PairCard, { key: 'pair', ...s }),
         h(Stage, { key: 'stage', ...s }),
         h(Chat, { key: 'c' }),
         h(Status, { key: 'st', ...s }),

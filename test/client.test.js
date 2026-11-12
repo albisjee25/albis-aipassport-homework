@@ -124,3 +124,21 @@ test('对话入口预填的话会先让 AI 读开发说明', () => {
   find(React.createElement(Page, {}), isHero).props.onClick()
   assert.ok(calls[0][1].prompt.includes('homework_dev_guide'))
 })
+
+test('新设备请求连接：配对码和“允许/拒绝”显示在插件页；没有请求时不显示', () => {
+  const render = (pairing) => {
+    const info = { asr: { ready: true }, voice: 'chirp', device: { online: false, last_seen_s: null }, tasks: { total: 0, done: 0 }, pairing }
+    const saved = React.useState
+    React.useState = (init) => [typeof init === 'object' && init?.status ? { status: 'up', info } : init, () => {}]
+    try {
+      const { api } = load()
+      let Page
+      api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
+      return textOf(React.createElement(Page, {})).join('')
+    } finally { React.useState = saved }
+  }
+  const withReq = render([{ code: '4821', ip: '192.168.1.9', age_s: 3 }])
+  for (const s of ['4821', '有一台新设备请求连接', '允许', '拒绝']) assert.ok(withReq.includes(s), `缺少：${s}`)
+  assert.ok(!withReq.includes('192.168.1.9'), '不显示设备地址')
+  assert.ok(!render([]).includes('有一台新设备请求连接'))
+})
