@@ -135,10 +135,8 @@
   .sub-sec { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--line); }
   .sub-sec > h3 { font-size: 16px; font-weight: 650; margin: 0; }
   .sub-sec > .hint { margin: 2px 0 4px; }
-  .ph-group { margin-top: 18px; }
-  .ph-group h4 { display: flex; align-items: baseline; gap: 10px; margin: 0 0 6px; font-size: 14px; font-weight: 600; }
-  .ph-group h4 small { font-size: 12.5px; font-weight: 400; color: var(--soft); }
   .pair { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1.5fr) 30px; gap: 10px; align-items: center; }
+  .ph-list { margin-top: 10px; }
   .ph-list .pair { padding: 9px 0; box-shadow: 0 1px 0 var(--line); }
   .ph-list .pair b { font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
   .ph-list .pair .to { color: var(--faint); text-align: center; }
@@ -209,8 +207,6 @@
     .task .mins { grid-area: m; } .task select { grid-area: st; justify-self: end; }
     .ph-form { grid-template-columns: 1fr 1fr; } .ph-form button { grid-column: 1 / -1; }
     .stats { grid-template-columns: 1fr; }
-    .ph-group h4 { flex-wrap: wrap; row-gap: 2px; }
-    .ph-group h4 small { flex-basis: 100%; }
     .pair.add { grid-template-columns: 1fr; gap: 8px; }
     .pair.add .to { display: none; }
     .pair.add button { width: 100%; }
@@ -264,28 +260,13 @@
 
         <div class="sub-sec">
           <h3>短语库</h3>
-          <p class="hint">教 AI 认识老师的简写、纠正小机器人常听错的词。</p>
-
-          <div class="ph-group">
-            <h4>老师的简写 <small>AI 整理作业时照原样保留，不会改写</small></h4>
-            <div class="ph-list" id="ph-terms"><div class="ph-eg">读取中…</div></div>
-            <div class="pair add">
-              <input id="t-text" placeholder="老师的简写，如：家默" aria-label="老师的简写">
-              <span class="to">→</span>
-              <input id="t-meaning" placeholder="它的意思（可不填），如：家庭默写" aria-label="意思">
-              <button class="main" id="t-add">添加</button>
-            </div>
-          </div>
-
-          <div class="ph-group">
-            <h4>常听错的词 <small>小机器人听写出错的词，多个写法用逗号分开，识别后自动换成右边的</small></h4>
-            <div class="ph-list" id="ph-fixes"><div class="ph-eg">读取中…</div></div>
-            <div class="pair add">
-              <input id="f-heard" placeholder="常听成，如：音一中，因译中" aria-label="常被听成">
-              <span class="to">→</span>
-              <input id="f-text" placeholder="应该是，如：英译中" aria-label="应该是">
-              <button class="main" id="f-add">添加</button>
-            </div>
+          <p class="hint">老师的简写、孩子的说法，告诉 AI 它是什么意思。整理作业时会照原样保留，并按意思理解。</p>
+          <div class="ph-list" id="ph-terms"><div class="ph-eg">读取中…</div></div>
+          <div class="pair add">
+            <input id="t-text" placeholder="简写或说法，如：家默" aria-label="短语">
+            <span class="to">→</span>
+            <input id="t-meaning" placeholder="意思（可不填），如：回家默写" aria-label="意思">
+            <button class="main" id="t-add">添加</button>
           </div>
           <div class="status-line" id="ph-status"></div>
         </div>
@@ -545,46 +526,31 @@ async function loadTurns() {
 }
 $("#log-refresh").onclick = loadTurns;
 
-// ---- phrase book ----
-const PH_EG = { term: "还没有。例如：家默 → 家庭默写", fix: "还没有。例如：音一中、因译中 → 英译中" };
+// ---- phrase book：只有一个概念，“短语 → 意思” ----
 function renderPhrases(items) {
-  const row = (p) => p.kind === "fix"
-    ? `<div class="pair"><b>${esc((p.heard || []).join("、") || "—")}</b><span class="to">→</span><span class="v"><b>${esc(p.text)}</b></span><button data-ph="${esc(p.id)}" title="删除">✕</button></div>`
-    : `<div class="pair"><b>${esc(p.text)}</b><span class="to">→</span><span class="v${p.meaning ? "" : " none"}">${esc(p.meaning || "原样保留")}</span><button data-ph="${esc(p.id)}" title="删除">✕</button></div>`;
-  for (const [kind, box] of [["term", "#ph-terms"], ["fix", "#ph-fixes"]]) {
-    const list = items.filter((p) => p.kind === kind);
-    $(box).innerHTML = list.map(row).join("") || `<div class="ph-eg">${PH_EG[kind]}</div>`;
-  }
+  const list = items.filter((p) => p.kind !== "fix");   // 内置的“纠错”替换由程序自己用，不在页面上维护
+  $("#ph-terms").innerHTML = list.map((p) =>
+    `<div class="pair"><b>${esc(p.text)}</b><span class="to">→</span><span class="v${p.meaning ? "" : " none"}">${esc(p.meaning || "原样保留")}</span><button data-ph="${esc(p.id)}" title="删除">✕</button></div>`
+  ).join("") || '<div class="ph-eg">还没有。例如：家默 → 回家默写</div>';
 }
 async function loadPhrases() {
   try { renderPhrases((await api("/api/phrases")).items); }
-  catch { for (const b of ["#ph-terms", "#ph-fixes"]) $(b).innerHTML = '<div class="ph-eg">没能读取短语库（服务没连上），稍后刷新页面重试。</div>'; }
+  catch { $("#ph-terms").innerHTML = '<div class="ph-eg">没能读取短语库（服务没连上），稍后刷新页面重试。</div>'; }
 }
-document.querySelectorAll(".ph-list").forEach((el) => el.addEventListener("click", async (e) => {
+$("#ph-terms").addEventListener("click", async (e) => {
   const id = e.target.dataset.ph;
   if (id && confirm("删除这条短语？")) renderPhrases((await api(`/api/phrases/${id}`, { method: "DELETE" })).items);
-}));
-async function addPhrase(body, clear) {
-  const st = $("#ph-status");
-  try {
-    renderPhrases((await api("/api/phrases", json("POST", body))).items);
-    clear.forEach((sel) => ($(sel).value = ""));
-    st.textContent = "";
-  } catch (err) { st.className = "status-line err"; st.textContent = err.message; }
-}
-$("#t-add").onclick = () => {
+});
+$("#t-add").onclick = async () => {
   const text = $("#t-text").value.trim();
   if (!text) return $("#t-text").focus();
-  addPhrase({ kind: "term", text, meaning: $("#t-meaning").value.trim() }, ["#t-text", "#t-meaning"]);
-};
-$("#f-add").onclick = () => {
-  const heard = $("#f-heard").value.trim(), text = $("#f-text").value.trim();
-  if (!heard) return $("#f-heard").focus();
-  if (!text) return $("#f-text").focus();
-  addPhrase({ kind: "fix", text, heard }, ["#f-heard", "#f-text"]);
+  const st = $("#ph-status");
+  try {
+    renderPhrases((await api("/api/phrases", json("POST", { kind: "term", text, meaning: $("#t-meaning").value.trim() }))).items);
+    $("#t-text").value = ""; $("#t-meaning").value = ""; st.textContent = "";
+  } catch (err) { st.className = "status-line err"; st.textContent = err.message; }
 };
 for (const id of ["#t-text", "#t-meaning"]) $(id).addEventListener("keydown", (e) => e.key === "Enter" && $("#t-add").click());
-for (const id of ["#f-heard", "#f-text"]) $(id).addEventListener("keydown", (e) => e.key === "Enter" && $("#f-add").click());
 loadPhrases();
 
 // ---- 用时记录 ----
