@@ -217,7 +217,10 @@ static int request(esp_http_client_method_t method, const char *path, const char
     int64_t t_start = esp_timer_get_time();
     esp_err_t err = esp_http_client_perform(c);
     int status = err == ESP_OK ? esp_http_client_get_status_code(c) : -1;
-    if (err != ESP_OK) {
+    // On a 401 without a WWW-Authenticate header the HTTP client fails with ESP_ERR_NOT_SUPPORTED
+    // instead of reporting the status: read it ourselves so "token refused" is detected.
+    if (err == ESP_ERR_NOT_SUPPORTED && esp_http_client_get_status_code(c) == 401) status = 401;
+    else if (err != ESP_OK) {
         int e = esp_http_client_get_errno(c);
         ESP_LOGW(TAG, "request %s failed: %s errno=%d (%s) after %lld ms, free heap %u",
                  path, esp_err_to_name(err), e, e ? strerror(e) : "-",
