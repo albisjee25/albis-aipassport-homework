@@ -1,6 +1,6 @@
 {
   "name": "albis-aipassport-homework",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
   "author": "albis",
   "license": "MIT",
