@@ -222,6 +222,22 @@ bool hw_idle_due(hw_idle_t *s, int64_t now_ms, bool allowed) {
     return true;
 }
 
+void hw_bl_init(hw_bl_t *b, int64_t now_ms) { b->last_ms = now_ms; }
+void hw_bl_activity(hw_bl_t *b, int64_t now_ms) { b->last_ms = now_ms; }
+
+int hw_bl_target(const hw_bl_t *b, int64_t now_ms, bool keep_bright, bool keep_dim) {
+    int64_t age = now_ms - b->last_ms;
+    if (keep_bright || age < HW_BL_BRIGHT_MS) return HW_BL_BRIGHT_PCT;
+    if (keep_dim || age < HW_BL_LOW_MS) return HW_BL_DIM_PCT;
+    return HW_BL_LOW_PCT;
+}
+
+int hw_bl_ramp(int cur, int target) {
+    if (target >= cur) return target;
+    cur -= HW_BL_FADE_STEP;
+    return cur < target ? target : cur;
+}
+
 int hw_idle_pick(hw_idle_t *s, int n) {
     return n > 0 ? (int)(next_rand(s) % (uint32_t)n) : 0;
 }

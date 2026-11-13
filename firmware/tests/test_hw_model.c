@@ -191,7 +191,27 @@ static void test_edit_step(void) {
     assert(hw_edit_step(3, false) == HW_EDIT_MIN && hw_edit_step(150, false) == HW_EDIT_MAX);
 }
 
+static void test_backlight_policy(void) {
+    hw_bl_t b;
+    hw_bl_init(&b, 0);
+    assert(hw_bl_target(&b, 0, false, false) == 100);
+    assert(hw_bl_target(&b, HW_BL_BRIGHT_MS - 1, false, false) == 100);
+    assert(hw_bl_target(&b, HW_BL_BRIGHT_MS, false, false) == HW_BL_DIM_PCT);
+    assert(hw_bl_target(&b, HW_BL_LOW_MS - 1, false, false) == HW_BL_DIM_PCT);
+    assert(hw_bl_target(&b, HW_BL_LOW_MS, false, false) == HW_BL_LOW_PCT);
+    assert(hw_bl_target(&b, 24 * 60 * MIN, false, false) == HW_BL_LOW_PCT);      // never off
+    assert(hw_bl_target(&b, 10 * MIN, true, false) == 100);                      // alert/celebration
+    assert(hw_bl_target(&b, HW_BL_LOW_MS, false, true) == HW_BL_DIM_PCT); // countdown stays at 60%
+    hw_bl_activity(&b, HW_BL_LOW_MS);                                     // a key brightens it
+    assert(hw_bl_target(&b, HW_BL_LOW_MS + 1, false, false) == 100);
+    assert(hw_bl_ramp(30, 100) == 100);                                   // brighten at once
+    assert(hw_bl_ramp(100, 60) == 100 - HW_BL_FADE_STEP);                 // darken gradually
+    assert(hw_bl_ramp(62, 60) == 60);
+    assert(hw_bl_ramp(30, 30) == 30);
+}
+
 int main(void) {
+    test_backlight_policy();
     test_worked_time_skips_pauses_counts_alert();
     test_set_minutes();
     test_edit_step();

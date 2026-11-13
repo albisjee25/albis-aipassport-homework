@@ -182,10 +182,17 @@ int main(int argc, char **argv) {
     hw_ui_robot(HW_MOOD_FOCUS);
     run(2000);
     shot("计时 · 很长的作业名", "名字循环滚动");
+    run(9000);
+    shot("计时 · 长名字滚完", "8 秒后停成一行“…”，不能挤到时钟");
+    run(3000);
+    shot("计时 · 长名字滚完再过3秒", "必须和上一张完全相同：滚动已停，不再重绘");
 
     // ---- alert
     hw_ui_show(HW_PAGE_ALERT);
     hw_ui_robot(HW_MOOD_WORRIED);
+    hw_ui_set_alert("复习83、84、85和第9页的关于月份的单词", 0);
+    run(9000);
+    shot("到点 · 长名字滚完", "标题一行，不压按钮");
     hw_ui_set_alert("练习册P34-35", 0);
     shot("到点 · 选中“做完了”", "");
     hw_ui_set_alert("练习册P34-35", 1);

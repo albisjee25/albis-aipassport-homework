@@ -10,12 +10,9 @@
 #include <string.h>
 
 #include "bsp_display.h"
-#include "hw_diag.h"   // DIAG(power)
 #include "hw_robot_art.h"
 #include "hw_sweep.h"
 #include "lvgl.h"
-#include "esp_timer.h"   // DIAG(keys)
-#include "esp_rom_sys.h"   // DIAG(keys)
 
 LV_FONT_DECLARE(hw_font_18);   // smooth font for task names
 LV_FONT_DECLARE(hw_font_24);
@@ -113,11 +110,26 @@ static lv_obj_t *centered(lv_obj_t *parent, int y, const lv_font_t *font, uint32
 // Eye offsets below are in "small steps" of 1/3 grid cell, so they scale with the robot.
 static int step(int d) { return d * s_art->scale / 3; }
 
+// LVGL redraws an object every time it is set, even to the same value. The robot is updated
+// ten times a second, so setters only touch an object when something really changed;
+// otherwise an idle screen was repainting itself ~80 times a second (battery drain).
+static void img_src(lv_obj_t *o, const void *src) {
+    if (lv_image_get_src(o) != src) lv_image_set_src(o, src);
+}
+
+static void put(lv_obj_t *o, int x, int y, int *last) {
+    if (last[0] == x && last[1] == y) return;
+    last[0] = x;
+    last[1] = y;
+    lv_obj_set_pos(o, x, y);
+}
+
 static void set_eyes(hw_eye_t l, hw_eye_t r, int dx, int dy) {
-    lv_image_set_src(s_eye[0], s_art->eye[l]);
-    lv_image_set_src(s_eye[1], s_art->eye[r]);
-    lv_obj_set_pos(s_eye[0], s_rx + s_art->eye_l_x + step(dx), s_ry + s_art->eye_y + step(dy));
-    lv_obj_set_pos(s_eye[1], s_rx + s_art->eye_r_x + step(dx), s_ry + s_art->eye_y + step(dy));
+    static int last[2][2] = { { -9999, -9999 }, { -9999, -9999 } };
+    img_src(s_eye[0], s_art->eye[l]);
+    img_src(s_eye[1], s_art->eye[r]);
+    put(s_eye[0], s_rx + s_art->eye_l_x + step(dx), s_ry + s_art->eye_y + step(dy), last[0]);
+    put(s_eye[1], s_rx + s_art->eye_r_x + step(dx), s_ry + s_art->eye_y + step(dy), last[1]);
 }
 
 static void battery_draw(bool blink_phase);
@@ -165,8 +177,8 @@ static void robot_draw(void) {
         break;
     }
     // The head lamp is the connection light: it only glows while the Mac answers.
-    lv_image_set_src(s_lamp, lamp_on && s_online ? s_art->lamp_on : s_art->lamp_off);
-    lv_image_set_src(s_roller, s_art->roller[roller]);
+    img_src(s_lamp, lamp_on && s_online ? s_art->lamp_on : s_art->lamp_off);
+    img_src(s_roller, s_art->roller[roller]);
     battery_draw((k / 5) % 2);
 }
 
@@ -243,10 +255,21 @@ static void battery_draw(bool blink_phase) {
     int inner = 28 - 6, fill = (s_soc * inner + 50) / 100;
     if (fill < 2) fill = 2;
     bool low = s_soc <= 20;
-    lv_obj_set_size(s_batt_fill, 8, fill);
-    lv_obj_set_pos(s_batt_fill, 1, 1 + inner - fill);
-    lv_obj_set_style_bg_color(s_batt_fill, lv_color_hex(low ? C_LAMP : C_OK), 0);
-    lv_obj_set_style_bg_opa(s_batt_fill, low && blink_phase ? LV_OPA_30 : LV_OPA_COVER, 0);
+    lv_opa_t opa = low && blink_phase ? LV_OPA_30 : LV_OPA_COVER;
+    static int last_fill = -1, last_low = -1, last_opa = -1;   // touch the widget only on a change
+    if (fill != last_fill) {
+        last_fill = fill;
+        lv_obj_set_size(s_batt_fill, 8, fill);
+        lv_obj_set_pos(s_batt_fill, 1, 1 + inner - fill);
+    }
+    if ((int)low != last_low) {
+        last_low = low;
+        lv_obj_set_style_bg_color(s_batt_fill, lv_color_hex(low ? C_LAMP : C_OK), 0);
+    }
+    if (opa != last_opa) {
+        last_opa = opa;
+        lv_obj_set_style_bg_opa(s_batt_fill, opa, 0);
+    }
 }
 
 // ---- pages ---------------------------------------------------------------------------
@@ -278,9 +301,55 @@ static lv_obj_t *palette_create(lv_obj_t *parent) {
 
 // Task name: always one line, centred in the row. Too long: ends in "..." and, while the
 // row is selected, scrolls sideways to show the whole name.
+// A scrolling label repaints ~50 times a second for as long as it scrolls, so it scrolls for
+// SCROLL_MS after the name appears and then settles on "...". The label's user data tracks it:
+// 0 = plain, 1 = scrolling, 2 = finished scrolling.
+#define SCROLL_MS 8000
+static void scroll_done_cb(lv_timer_t *t) {
+    lv_obj_t *l = lv_timer_get_user_data(t);
+    if ((intptr_t)lv_obj_get_user_data(l) != 1) return;
+    lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+    lv_obj_set_user_data(l, (void *)(intptr_t)2);
+}
+
+// LVGL's "..." mode edits the label's own text in place, so lv_label_get_text() no longer equals
+// the name once it is shortened. The name last given to each label is kept here instead.
+typedef struct { lv_obj_t *l; char text[HW_TITLE_LEN]; } title_cache_t;
+static title_cache_t s_title_cache[ROWS_VISIBLE + 2];
+
+static title_cache_t *title_cache(lv_obj_t *l) {
+    for (unsigned i = 0; i < sizeof s_title_cache / sizeof s_title_cache[0]; i++) {
+        if (s_title_cache[i].l == l) return &s_title_cache[i];
+    }
+    for (unsigned i = 0; i < sizeof s_title_cache / sizeof s_title_cache[0]; i++) {
+        if (!s_title_cache[i].l) { s_title_cache[i].l = l; return &s_title_cache[i]; }
+    }
+    return &s_title_cache[0];
+}
+
 static void title_set(lv_obj_t *l, const char *text, bool selected) {
-    lv_label_set_long_mode(l, selected ? LV_LABEL_LONG_SCROLL_CIRCULAR : LV_LABEL_LONG_DOT);
+    title_cache_t *c = title_cache(l);
+    intptr_t st = (intptr_t)lv_obj_get_user_data(l);
+    bool same = strcmp(c->text, text) == 0;
+    if (!selected) {
+        if (st != 0 || lv_label_get_long_mode(l) != LV_LABEL_LONG_DOT) {
+            lv_label_set_long_mode(l, LV_LABEL_LONG_DOT);
+            lv_obj_set_user_data(l, NULL);
+            same = false;                                  // re-set the text under the new mode
+        }
+        if (!same) {
+            lv_label_set_text(l, text);
+            snprintf(c->text, sizeof c->text, "%s", text);
+        }
+        return;
+    }
+    if (same && st != 0) return;                       // already scrolling, or done for this name
+    lv_label_set_long_mode(l, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(l, text);
+    snprintf(c->text, sizeof c->text, "%s", text);
+    lv_obj_set_user_data(l, (void *)(intptr_t)1);
+    lv_timer_t *t = lv_timer_create(scroll_done_cb, SCROLL_MS, l);
+    lv_timer_set_repeat_count(t, 1);                   // deletes itself after firing
 }
 
 static void list_create(lv_obj_t *p) {
@@ -306,6 +375,9 @@ static void list_create(lv_obj_t *p) {
 
 static void timer_create(lv_obj_t *p) {
     s_t_title = centered(p, 6, &hw_font_24, C_INK);
+    // One fixed line: without a fixed height the "..." mode wraps onto a second line and
+    // runs into the clock below.
+    lv_obj_set_height(s_t_title, lv_font_get_line_height(&hw_font_24));
     lv_label_set_long_mode(s_t_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     s_t_clock = centered(p, 34, &hw_font_48, C_INK);
     s_t_bar = lv_bar_create(p);
@@ -323,6 +395,9 @@ static void alert_create(lv_obj_t *p) {
     lv_obj_t *t = centered(p, 2, &hw_font_24, C_LAMP);
     lv_label_set_text(t, "时间到啦！");
     s_a_title = centered(p, 32, &hw_font_24, C_INK);
+    // One fixed line: without a fixed height the "..." mode wraps onto a second line and
+    // runs into the clock below.
+    lv_obj_set_height(s_a_title, lv_font_get_line_height(&hw_font_24));
     lv_label_set_long_mode(s_a_title, LV_LABEL_LONG_SCROLL_CIRCULAR);
     static const char *TEXT[2] = { "★ 做完了", "再来 5 分钟" };
     for (int i = 0; i < 2; i++) {
@@ -367,12 +442,6 @@ static void setup_create(lv_obj_t *p) {
 static void confirm_create(lv_obj_t *p) {
     lv_obj_t *t = centered(p, 30, &hw_font_24, C_INK);
     lv_label_set_text(t, "重新设置 Wi-Fi？\n\n设备会重启并进入\n配网模式");
-}
-
-// DIAG(power): count screen redraws.
-static void count_flush(lv_event_t *e) {
-    const lv_area_t *a = lv_event_get_param(e);
-    if (a) hw_diag_ui_flush((int)(lv_area_get_width(a) * lv_area_get_height(a)));
 }
 
 void hw_ui_init(void) {
@@ -433,7 +502,6 @@ void hw_ui_init(void) {
     }
 
     lv_screen_load(s_scr);
-    lv_display_add_event_cb(lv_display_get_default(), count_flush, LV_EVENT_FLUSH_START, NULL);   // DIAG(power)
     bsp_lvgl_unlock();
 }
 
@@ -565,12 +633,7 @@ void hw_ui_robot(hw_mood_t mood) {
 
 void hw_ui_set_list(const hw_list_t *l, int selected) {
     if (!s_scr) return;
-    int64_t t0 = esp_timer_get_time();   // DIAG(keys)
-    if (!bsp_lvgl_lock(200)) {
-        esp_rom_printf("[ui] set_list LOCK TIMEOUT\n");   // DIAG(keys)
-        return;
-    }
-    esp_rom_printf("[ui] set_list sel %d lock %lldms\n", selected, (long long)((esp_timer_get_time() - t0) / 1000));   // DIAG(keys)
+    if (!bsp_lvgl_lock(200)) return;
     if (l->count == 0) lv_obj_remove_flag(s_list_empty, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(s_list_empty, LV_OBJ_FLAG_HIDDEN);
 
@@ -624,22 +687,40 @@ void hw_ui_set_edit(int minutes) {
 
 void hw_ui_set_timer(const char *title, const hw_timer_t *t) {
     if (!s_scr || !bsp_lvgl_lock(200)) return;
-    if (strcmp(lv_label_get_text(s_t_title), title) != 0) lv_label_set_text(s_t_title, title);
-    char clock[12];
-    hw_format_clock(hw_timer_seconds_left(t), clock, sizeof clock);
-    lv_label_set_text(s_t_clock, clock);
-    lv_bar_set_value(s_t_bar, hw_timer_permille(t), LV_ANIM_OFF);
+    title_set(s_t_title, title, true);
+    // Called every tick: LVGL repaints on any set call, even with an unchanged value, so each
+    // widget is touched only when what it shows has changed (once a second for the clock).
+    static char last_clock[12] = "";
+    static int last_permille = -1, last_near = -1, last_state = -1;
     int left = hw_timer_seconds_left(t);
-    bool near = left <= hw_remind_before_ms(t->total_ms) / 1000;
-    lv_obj_set_style_text_color(s_t_clock, lv_color_hex(near ? C_WARN : C_INK), 0);
-    lv_obj_set_style_bg_color(s_t_bar, lv_color_hex(near ? C_WARN : C_OK), LV_PART_INDICATOR);
-    lv_label_set_text(s_t_state, t->phase == HW_T_PAUSED ? "已暂停" : near ? "快到时间啦" : "专心写作业…");
+    char clock[12];
+    hw_format_clock(left, clock, sizeof clock);
+    if (strcmp(clock, last_clock) != 0) {
+        lv_label_set_text(s_t_clock, clock);
+        snprintf(last_clock, sizeof last_clock, "%s", clock);
+    }
+    int permille = hw_timer_permille(t);
+    if (permille != last_permille) {
+        lv_bar_set_value(s_t_bar, permille, LV_ANIM_OFF);
+        last_permille = permille;
+    }
+    int near = left <= hw_remind_before_ms(t->total_ms) / 1000;
+    if (near != last_near) {
+        lv_obj_set_style_text_color(s_t_clock, lv_color_hex(near ? C_WARN : C_INK), 0);
+        lv_obj_set_style_bg_color(s_t_bar, lv_color_hex(near ? C_WARN : C_OK), LV_PART_INDICATOR);
+        last_near = near;
+    }
+    int state = t->phase == HW_T_PAUSED ? 0 : near ? 1 : 2;
+    if (state != last_state) {
+        lv_label_set_text(s_t_state, state == 0 ? "已暂停" : state == 1 ? "快到时间啦" : "专心写作业…");
+        last_state = state;
+    }
     bsp_lvgl_unlock();
 }
 
 void hw_ui_set_alert(const char *title, int choice) {
     if (!s_scr || !bsp_lvgl_lock(200)) return;
-    lv_label_set_text(s_a_title, title);
+    title_set(s_a_title, title, true);
     for (int i = 0; i < 2; i++) {
         lv_obj_set_style_bg_color(s_a_btn[i], lv_color_hex(i == choice ? C_SEL : C_PANEL), 0);
         lv_obj_set_style_border_width(s_a_btn[i], i == choice ? 3 : 0, 0);

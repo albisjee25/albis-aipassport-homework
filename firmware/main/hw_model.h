@@ -110,3 +110,26 @@ void hw_idle_activity(hw_idle_t *s, int64_t now_ms);
 bool hw_idle_due(hw_idle_t *s, int64_t now_ms, bool allowed);
 // Which chirp variant to use (0..n-1), drawn from the same generator.
 int hw_idle_pick(hw_idle_t *s, int n);
+
+// ---- backlight policy --------------------------------------------------------------
+// A worn badge, not a phone: the screen never turns off. It follows what the child is doing:
+//   bright (100%) for 20 s after any key or event (new homework, reminder), and for the whole of
+//                 the alert, celebration, setup, confirm pages and while talking;
+//   dim (60%)     afterwards, easy to read at a glance;
+//   low (30%)     after 5 min with no key, to save battery. Any key or event brightens it again.
+//                 A running countdown never goes below dim (60%): the child needs to read it.
+#define HW_BL_BRIGHT_PCT 100
+#define HW_BL_DIM_PCT    60
+#define HW_BL_LOW_PCT    30
+#define HW_BL_BRIGHT_MS  (20 * 1000)
+#define HW_BL_LOW_MS     (5 * 60 * 1000)
+#define HW_BL_FADE_STEP  5     // percent per tick while getting darker; brightening is instant
+
+typedef struct { int64_t last_ms; } hw_bl_t;
+
+void hw_bl_init(hw_bl_t *b, int64_t now_ms);
+void hw_bl_activity(hw_bl_t *b, int64_t now_ms);
+// `keep_bright`: pages/states that must stay fully lit. `keep_dim`: a running countdown.
+int hw_bl_target(const hw_bl_t *b, int64_t now_ms, bool keep_bright, bool keep_dim);
+// One tick of the fade from `cur` towards `target`.
+int hw_bl_ramp(int cur, int target);

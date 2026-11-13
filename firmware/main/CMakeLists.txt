@@ -9,7 +9,6 @@ idf_component_register(
          "hw_sound.c"
          "hw_ui.c"
          "hw_talk.c"
-         "hw_diag.c"
          "hw_sweep.c"
          "hw_robot_art.c"
     INCLUDE_DIRS "."

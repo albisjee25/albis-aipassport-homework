@@ -68,6 +68,12 @@
   "homeworkHelper": {
     "releaseNotes": [
       {
+        "version": "0.4.1",
+        "date": "2026-11-13",
+        "zh": "### 变化\n- **更省电的屏幕**：倒计时页不再空转重绘；长标题只滚动 8 秒后停成“…”，不再一直滚动。\n- **背光分三档**：按键或有新事件后 20 秒内最亮，之后 60%，5 分钟没操作降到 30%；倒计时进行中保持 60%。屏幕不会熄灭。\n### 修复\n- 长标题滚动结束后折成两行、压到倒计时时钟的问题。\n- 去掉排查耗电时留在固件里的诊断日志。\n- 设备固件需要重新烧录（只烧应用，Wi-Fi 配置保留）。",
+        "en": "### Changes\n- **Calmer screen**: the countdown page no longer redraws constantly; a long title scrolls for 8 seconds, then stops as \"…\" instead of scrolling forever.\n- **Three-step backlight**: brightest for 20 s after a key press or new event, then 60%, and 30% after 5 minutes idle; a running countdown stays at 60%. The screen never turns off.\n### Fixes\n- A long title wrapping to two lines and covering the countdown clock after it stopped scrolling.\n- Removed the diagnostic logging that was left in the firmware while tracking battery drain.\n- The device firmware needs a re-flash (app only; Wi-Fi settings are kept)."
+      },
+      {
         "version": "0.4.0",
         "date": "2026-11-12",
         "zh": "### 新功能\n- **全部完成庆祝**：做完当天最后一项作业，设备上机器人会用清洁滚刷把作业卡片一行行扫掉，撒彩屑庆祝。\n- **做完自动清空**：庆祝结束后设备清空列表，显示“今天的作业全部完成啦！”，服务端把当天作业连同实际用时存档。\n- **今日作业显示总用时**：后台“今日作业”进度行显示今天已用时多少分钟，清空后仍可查看。\n### 变化\n- 不再区分必做和选做，当天所有作业都要做完。\n- 设备固件需要重新烧录（只烧应用，Wi-Fi 配置保留）。",

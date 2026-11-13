@@ -29,13 +29,11 @@
 #include "esp_sleep.h"
 #include "esp_system.h"
 #include "esp_timer.h"
-#include "esp_rom_sys.h"   // DIAG(keys)
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "hw_model.h"
-#include "hw_diag.h"   // DIAG(power)
 #include "hw_net.h"
 #include "hw_provision.h"
 #include "hw_sound.h"
@@ -73,6 +71,9 @@ static hw_list_t *s_scratch;
 static SemaphoreHandle_t s_pending_lock;
 static hw_timer_t s_timer;
 static hw_idle_t s_idle;
+static hw_bl_t s_bl;                 // backlight: 100% after a key/event, then 60%, then 30%
+static int s_bl_pct = 100;           // what the panel shows now
+static void backlight_wake(void);
 static hw_page_t s_page = HW_PAGE_LIST;
 static int s_sel;
 static int s_alert_choice;
@@ -109,7 +110,6 @@ static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user) {
     (void)user;
     // Consume the guard first so an early release still disarms it.
     if (key_guard_consume(&s_key_guard, ev == BSP_BTN_RELEASE, esp_timer_get_time())) return;
-    esp_rom_printf("[key] %lld b%d e%d\n", (long long)(esp_timer_get_time() / 1000), btn, ev);   // DIAG(keys)
     if (!s_input_ready || !s_queue) return;
     // UP / DOWN: a short press counts the moment it is released. The button component's
     // own CLICK waits 180 ms for a possible second press and merges quick presses into a
@@ -311,6 +311,7 @@ static void merge_list(const hw_list_t *src, bool announce) {
             if (s_page == HW_PAGE_DONE) show_list();
             hw_ui_toast("收到新作业啦！", 2500);
             hw_idle_activity(&s_idle, now_ms());
+            backlight_wake();
             hw_ui_robot(HW_MOOD_HAPPY);
             hw_sound_play(HW_CHIRP_HAPPY, HW_VOICE_NEWLIST);
         }
@@ -360,6 +361,7 @@ static void apply_talk(void) {
     if (xSemaphoreTake(s_pending_lock, pdMS_TO_TICKS(500)) != pdTRUE) return;
     *s_talk_scratch = *s_talk_pending;
     xSemaphoreGive(s_pending_lock);
+    backlight_wake();                          // the answer is for the child to read
     const hw_talk_result_t *rp = s_talk_scratch;
     if (!rp->ok) {
         if (rp->error[0]) {
@@ -408,9 +410,23 @@ static void apply_talk(void) {
     hw_ui_robot(mood_of(rp->mood));
 }
 
+// ---- backlight -------------------------------------------------------------------------
+static void backlight_wake(void) { hw_bl_activity(&s_bl, now_ms()); }
+
+static void backlight_update(int64_t now) {
+    bool keep_bright = s_page == HW_PAGE_ALERT || s_page == HW_PAGE_DONE || s_page == HW_PAGE_SETUP ||
+                       s_page == HW_PAGE_CONFIRM || hw_talk_state() != HW_TALK_IDLE;
+    bool keep_dim = s_page == HW_PAGE_TIMER && s_timer.phase == HW_T_RUNNING;   // must stay readable
+    int next = hw_bl_ramp(s_bl_pct, hw_bl_target(&s_bl, now, keep_bright, keep_dim));
+    if (next != s_bl_pct) {
+        s_bl_pct = next;
+        bsp_display_backlight((uint8_t)next);
+    }
+}
+
 // ---- keys ------------------------------------------------------------------------------
 static void on_key_event(bsp_btn_t btn, bsp_btn_ev_t ev) {
-    ESP_LOGI(TAG, "DIAG key handled b%d e%d page %d sel %d", btn, ev, s_page, s_sel);   // DIAG(keys)
+    backlight_wake();
     bool click = ev == BSP_BTN_CLICK, lng = ev == BSP_BTN_LONG;
     // Push-to-talk: hold OK on the list, timer or alert page; release to send.
     // Recording starts on PRESS (pre-roll) so the first words are not lost.
@@ -541,6 +557,7 @@ static void on_tick(int64_t now) {
     if (s_page == HW_PAGE_TIMER) {
         hw_timer_event_t ev = hw_timer_tick(&s_timer, now);
         if (ev == HW_TEV_REMIND) {
+            backlight_wake();
             hw_ui_robot(HW_MOOD_WORRIED);
             bool short_task = s_timer.total_ms <= 5 * 60 * 1000;
             hw_sound_play(HW_CHIRP_WORRIED, short_task ? HW_VOICE_REMIND1 : HW_VOICE_REMIND2);
@@ -600,6 +617,7 @@ static void app_task(void *arg) {
         }
         int64_t now = now_ms();
         on_tick(now);
+        backlight_update(now);
         hw_net_state_t st = hw_net_state();
         if (st != shown_net) {
             if (st == HW_NET_ONLINE && shown_net != HW_NET_ONLINE && shown_net != (hw_net_state_t)-1 &&
@@ -616,6 +634,7 @@ static void app_task(void *arg) {
         }
         if (st == HW_NET_PAIRING && strcmp(shown_code, hw_net_pair_code()) != 0) {
             snprintf(shown_code, sizeof shown_code, "%s", hw_net_pair_code());
+            backlight_wake();
             char msg[64];
             snprintf(msg, sizeof msg, "配对码 %s\n请在电脑后台点“允许”", shown_code);
             hw_ui_toast(msg, 0);                    // stays up until paired
@@ -687,6 +706,7 @@ void app_main(void) {
         ESP_LOGE(TAG, "NVS init failed: %s", esp_err_to_name(err));
     }
     hw_ui_init();
+    hw_bl_init(&s_bl, now_ms());
     bsp_display_backlight(100);
     bsp_battery_init();
 
@@ -733,6 +753,5 @@ void app_main(void) {
     }
     s_input_ready = true;
     log_heap("ready");
-    hw_diag_start();   // DIAG(power)
     ESP_LOGI(TAG, "ready: %d cached tasks, version %d", s_list.count, (int)s_list.version);
 }

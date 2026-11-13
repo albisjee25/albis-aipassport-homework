@@ -3,7 +3,6 @@
 #include "bsp_button.h"
 #include "bsp_pins.h"
 #include "iot_button.h"
-#include "esp_rom_sys.h"   // DIAG(keys)
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -60,14 +59,6 @@ static uint8_t button_level(button_driver_t *driver) {
         if (adc_cali_raw_to_voltage(s_cali, sum / CONFIG_ADC_BUTTON_SAMPLE_TIMES,
                                    &s_sample_mv) != ESP_OK) {
             s_sample_mv = -1;
-        }
-    }
-    {   // DIAG(keys): log every change of voltage zone (0 up, 1 down, 2 ok, 3 released)
-        static int s_last_zone = 3;
-        int zone = s_sample_mv < 150 ? 0 : s_sample_mv < 447 ? 1 : s_sample_mv < 1900 ? 2 : 3;
-        if (zone != s_last_zone) {
-            esp_rom_printf("[adc] %lld z%d %dmV\n", (long long)(now / 1000), zone, s_sample_mv);
-            s_last_zone = zone;
         }
     }
     // Half-open windows prevent two keys from matching a shared boundary.
