@@ -57,7 +57,9 @@ dsh plugin --profile desktop add albis-aipassport-homework
 - `azure`：微软 Azure 语音（示例）。填 `voice.azureKey`、`voice.azureRegion`。
 - `custom`：自己的文件，`voice.customModule` 填绝对路径。**不会写？** 对 Harness 助手说“照 voice/azure.js 的写法，帮我接入 ×× 的语音合成”，写法见 `voice/README.md`。
 
-**语音识别怎么选**（`asrProvider`）：默认 `sensevoice`，本机模型，录音不出这台电脑。想换成 DeepSeek 云端更快、不用占 230MB，把 `asrProvider` 改成 `deepseek`，再到插件设置里把 **DeepSeek API Key** 填进 `speechKey`（在 [platform.deepseek.com](https://platform.deepseek.com/) 建一个）；没填 Key 时插件会自动退回本机模型，并在插件页提醒你。
+**语音识别怎么选**：在插件页的「运行状态」下面有一块「语音识别」，两个按钮点一下就切——**本机模型**（默认，录音不出这台电脑，首次下约 230MB）或 **DeepSeek 云端**（识别更快，不用占空间，但要一个 API Key，录音会上传）。选云端时旁边会出现输入框，把 [platform.deepseek.com](https://platform.deepseek.com/) 建的 Key 粘进去、点「保存 Key」就生效，不用重启 Harness。没填 Key 就一直是本机模型，页面会如实告诉你现在实际在用哪个。
+
+Harness 的「设置 → 插件 → 作业助手」里也有同样的 `asrProvider` 和 `speechKey`，效果一样；**在插件页上选过之后，以插件页的选择为准**（存在 `~/.dsh/homework-helper/settings.json`）。
 
 ## 孩子的年级
 
@@ -65,8 +67,8 @@ dsh plugin --profile desktop add albis-aipassport-homework
 
 ## 隐私
 
-- 默认（`asrProvider = sensevoice`）孩子的录音只在本机识别，不上传。
-- 如果你把识别改成云端（`asrProvider = deepseek`），孩子的录音会上传给 DeepSeek 做识别——这是换“识别快、不占 230MB”的代价，自己权衡；改回来就恢复本机识别。
+- 默认（本机模型）孩子的录音只在这台电脑上识别，不上传。
+- 如果你在插件页把识别切成 DeepSeek 云端，孩子的录音会上传给 DeepSeek 做识别——这是换“识别快、不占 230MB”的代价，自己权衡；点回「本机模型」立刻恢复本机识别。
 - 发给模型的只有截图和文字；孩子的话只直接问模型，不进入 Harness 的智能体对话，也不会被当成操作电脑的指令。
 - 数据在 `~/.dsh/homework-helper/`。
 

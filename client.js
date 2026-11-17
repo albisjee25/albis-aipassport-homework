@@ -159,6 +159,25 @@ button:has(.hwu-pill){position:relative}
 .hwh-stat{padding:12px 14px;border-radius:14px;background:var(--dsw-alias-bg-layer-1);min-width:0}
 .hwh-stat small{display:block;font-size:12px;color:var(--dsw-alias-label-secondary)}
 .hwh-stat b{display:flex;align-items:center;gap:6px;margin-top:4px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 语音识别：点开后在页面里直接改，不用去设置页 */
+.hwh-asr{margin-top:10px;padding:16px 18px;border-radius:16px;background:var(--dsw-alias-bg-layer-1)}
+.hwh-asr-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin-bottom:12px}
+.hwh-asr-h b{font-size:14px;font-weight:600}
+.hwh-asr-h span{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.hwh-seg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hwh-segbtn{display:block;padding:12px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:12px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+.hwh-segbtn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.hwh-segbtn.hwh-on{border-color:var(--hwh-accent);box-shadow:inset 0 0 0 1px var(--hwh-accent)}
+.hwh-segbtn b{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.hwh-segbtn small{display:block;margin-top:3px;font-size:11.5px;line-height:1.45;color:var(--dsw-alias-label-secondary)}
+.hwh-segbtn[disabled]{opacity:.5;cursor:default}
+.hwh-keyrow{display:flex;gap:8px;margin-top:12px}
+.hwh-input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-2);color:inherit;font:inherit;font-size:13px}
+.hwh-save{flex:none;padding:9px 16px;border:0;border-radius:10px;background:var(--hwh-accent);color:#fff;font:inherit;font-size:13px;cursor:pointer}
+.hwh-save[disabled]{opacity:.45;cursor:default}
+.hwh-note{margin-top:10px;font-size:12px;line-height:1.5;color:var(--dsw-alias-label-secondary)}
+.hwh-note.hwh-note-bad{color:var(--dsw-alias-state-error-primary,#E5484D)}
 .hwh-alert{display:flex;align-items:center;gap:12px;margin:10px 0 0;padding:10px 14px;border-radius:12px;font-size:13px;background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#F5A524) 12%,transparent)}
 .hwh-alert span{flex:1}
 .hwh-alert button{flex:none;border:0;padding:5px 10px;border-radius:8px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;cursor:pointer}
@@ -319,10 +338,37 @@ button:has(.hwu-pill){position:relative}
         : d?.online ? ['ok', '在线', null, `${d.last_seen_s} 秒前联系过`]
         : d?.last_seen_s != null ? ['bad', `${ago(d.last_seen_s)}没联系`, `设备从 ${d.last_seen_at} 起没再联系电脑，头灯会变灰。`]
         : ['warn', '还没连上过', '给设备通电、连好 Wi-Fi；第一次连接时，设备屏幕会出现 4 位配对码，本页最上方会出现“允许”按钮。']
+      // 语音识别开关：就在页面里改，值存在插件自己那儿，不用重启 Harness。
+      // 显示和“实际在用”保持一致：没有 Key 时不会把云端画成已选中，免得选中的和真跑的不一样。
+      const cloud = info?.asr?.provider === 'deepseek'
+      const savedMode = info?.asr?.mode === 'deepseek' ? 'deepseek' : 'sensevoice'
+      const hasKey = Boolean(info?.asr?.hasKey)
+      const [busy, setBusy] = React.useState('')
+      const [keyDraft, setKeyDraft] = React.useState('')
+      const [msg, setMsg] = React.useState('')
+      const [askKey, setAskKey] = React.useState(false)
+      const showKey = Boolean(askKey) || (savedMode === 'deepseek' && !hasKey) || (savedMode === 'deepseek' && hasKey)
+      const saveAsr = async (provider, key) => {
+        setBusy(provider)
+        setMsg('')
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/api/settings/asr`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-HW-Settings': '1' },
+            body: JSON.stringify(key === undefined ? { provider } : { provider, key }),
+          })
+          const out = await r.json().catch(() => ({}))
+          if (!r.ok || !out.ok) throw new Error(out.detail || out.message || `HTTP ${r.status}`)
+          if (out.missingKey) setMsg('Key 没存上或已失效，现在仍用本机模型。')
+          else setMsg(out.effective === 'deepseek' ? '已切到 DeepSeek 云端，下一句话就走云端识别。' : '已切回本机模型，录音不出这台电脑。')
+          setKeyDraft('')
+          setAskKey(false)
+        } catch (e) {
+          setMsg(`没保存成功：${e.message}`)
+        } finally { setBusy('') }
+      }
       const alerts = []
       if (status === 'down') alerts.push('作业助手服务没在运行。')
-      const cloud = info?.asr?.provider === 'deepseek'
-      if (up && info?.asr?.missingKey) alerts.push('语音识别选了 DeepSeek 云端，但还没填 API Key，现在用的是本机模型。到插件设置里把 Key 填进“DeepSeek API Key”（speechKey）——在 platform.deepseek.com 建一个；不想用云端就把 asrProvider 改回 sensevoice。')
       if (up && !info.asr.ready) alerts.push(cloud
         ? `语音识别没就绪：${info?.asr?.note || '没有可用的 API Key'}。检查插件设置里的 DeepSeek API Key。`
         : `语音识别${info.asr.note || '启动中'}。本机模型第一次要下载约 230MB，下载完才能说话。`)
@@ -336,8 +382,37 @@ button:has(.hwu-pill){position:relative}
         h('div', { className: 'hwh-stats' },
           stat('服务', up ? 'ok' : status === 'checking' ? '' : 'bad', up ? '运行中' : status === 'checking' ? '检测中' : '没连上', up ? `本机 ${port} 端口` : null),
           stat('设备', device[0], device[1], device[3]),
-          stat('语音识别', !up ? '' : info.asr.ready ? 'ok' : 'warn', !up ? wait : info.asr.ready ? (cloud ? 'DeepSeek 云端' : '本机模型') : '准备中', up ? (cloud ? '录音会上传给 DeepSeek 做识别；想不出本机就把 asrProvider 改成 sensevoice' : '在本机识别，录音不出这台电脑') : null),
+          stat('语音识别', !up ? '' : info.asr.ready ? 'ok' : 'warn', !up ? wait : info.asr.ready ? (cloud ? 'DeepSeek 云端' : '本机模型') : '准备中', up ? (cloud ? '录音会上传给 DeepSeek 做识别' : '在本机识别，录音不出这台电脑') : null),
           stat('机器人声音', null, up ? (VOICE_NAME[info.voice] || info.voice) : wait)),
+        up ? h('div', { className: 'hwh-asr' },
+          h('div', { className: 'hwh-asr-h' }, h('b', null, '语音识别'), h('span', null, '孩子的语音怎么识别，随时可以改')),
+          h('div', { className: 'hwh-seg' },
+            ...[['sensevoice', '本机模型', '录音不出这台电脑 · 首次约 230MB'], ['deepseek', 'DeepSeek 云端', '识别更快 · 录音会上传']]
+              .map(([value, title, hint]) => h('button', {
+                key: value, type: 'button', disabled: busy !== '',
+                className: `hwh-segbtn${cloud === (value === 'deepseek') ? ' hwh-on' : ''}`,
+                onClick: () => {
+                  if (cloud === (value === 'deepseek')) return
+                  if (value === 'sensevoice') void saveAsr('sensevoice')
+                  else if (hasKey) void saveAsr('deepseek')
+                  else { setAskKey(true); setMsg('') }   // 没 Key 先别切，等填好再切
+                },
+              },
+              h('b', null, title, cloud === (value === 'deepseek') ? h('i', { className: 'hwh-dot hwh-ok' }) : null),
+                h('small', null, hint)))),
+          showKey ? h('div', { className: 'hwh-keyrow' },
+            h('input', {
+              type: 'password', className: 'hwh-input', spellCheck: false, autoComplete: 'off',
+              placeholder: hasKey ? '已保存，换 Key 就粘贴新的' : '粘贴 DeepSeek API Key',
+              value: keyDraft, onChange: (e) => setKeyDraft(e.target.value),
+            }),
+            h('button', { type: 'button', className: 'hwh-save', disabled: !keyDraft.trim() || busy !== '', onClick: () => void saveAsr('deepseek', keyDraft.trim()) },
+              busy ? '保存中…' : '保存 Key')) : null,
+          h('div', { className: `hwh-note${String(msg).startsWith('没保存') ? ' hwh-note-bad' : ''}` },
+            msg || (cloud ? '走云端时，孩子的录音会上传给 DeepSeek 做识别。'
+              : savedMode === 'deepseek' && !hasKey ? '上次选了云端，但 Key 没了（或没填），所以先用本机。填一个就切过去。'
+                : askKey ? '填一个 DeepSeek API Key 就会切到云端，现在还没切。'
+                  : '录音只在这台电脑上识别。'))) : null,
         alerts.map((a) => h('div', { key: a, className: 'hwh-alert' }, h('span', null, a),
           ok ? h('button', { type: 'button', onClick: () => startChat(FIX_PROMPT + a) }, '让 AI 排查') : null)))
     }

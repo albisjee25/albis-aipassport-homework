@@ -229,6 +229,46 @@ test('新设备配对：没有令牌被拒 → 申请 → 后台允许 → 领�
   assert.equal(list.status, 200)
 })
 
+test('插件页上的语音识别开关：读得出当前值，改得动，切回本机也认', async () => {
+  const before = await api('/api/settings/asr')
+  assert.equal(before.status, 200)
+  assert.equal(before.body.mode, 'sensevoice')
+  assert.equal(before.body.effective, 'sensevoice')
+  assert.equal(before.body.hasKey, true)
+
+  // 没有 X-HW-Settings 头就不让改（别的网站没法悄悄替家长改）
+  const bare = await post('/api/settings/asr', { provider: 'deepseek' })
+  assert.equal(bare.status, 403)
+
+  const toCloud = await post('/api/settings/asr', { provider: 'deepseek' }, { 'x-hw-settings': '1' })
+  assert.equal(toCloud.status, 200)
+  assert.equal(toCloud.body.mode, 'deepseek')
+  assert.equal(toCloud.body.effective, 'deepseek')
+  const info = await api('/api/info')
+  assert.equal(info.body.asr.provider, 'deepseek', '/api/info 也要跟着变')
+  assert.equal(info.body.asr.mode, 'deepseek')
+
+  // 换一个 Key 也就地生效
+  const withKey = await post('/api/settings/asr', { provider: 'deepseek', key: 'sk-from-page' }, { 'x-hw-settings': '1' })
+  assert.equal(withKey.status, 200)
+  assert.equal(withKey.body.hasKey, true)
+
+  const back = await post('/api/settings/asr', { provider: 'sensevoice' }, { 'x-hw-settings': '1' })
+  assert.equal(back.body.mode, 'sensevoice')
+  assert.equal(back.body.effective, 'sensevoice')
+  assert.equal((await api('/api/info')).body.asr.provider, 'sensevoice')
+})
+
+test('选了云端但把 Key 清空：自动退回本机，并说自己缺 Key', async () => {
+  await post('/api/settings/asr', { provider: 'sensevoice', key: '' }, { 'x-hw-settings': '1' })
+  const r = await post('/api/settings/asr', { provider: 'deepseek' }, { 'x-hw-settings': '1' })
+  assert.equal(r.body.mode, 'deepseek', '家长选的模式要记住')
+  assert.equal(r.body.effective, 'sensevoice', '没 Key 时实际用本机')
+  assert.equal(r.body.missingKey, true)
+  // 还原，免得影响后面的用例
+  await post('/api/settings/asr', { provider: 'sensevoice', key: 'test-key-not-used' }, { 'x-hw-settings': '1' })
+})
+
 test('/api/update：没有插件管理器时返回空，且只允许 GET', async () => {
   const r = await api('/api/update')
   assert.equal(r.status, 200)

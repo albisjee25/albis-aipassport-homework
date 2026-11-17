@@ -8,9 +8,13 @@ import vm from 'node:vm'
 
 const SRC = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'client.js'), 'utf8')
 
+// 页面的“服务状态”来自 useInfo 里第一个 useState({ status: 'checking' })。
+// 只替换这一类对象状态，其余状态用组件自己的初始值 —— 否则每个 useState 都被塞成同一份数据，
+// 组件里只要有字符串状态（比如输入框内容）就会崩。
+let hookState = null
 const React = {
   createElement: (type, props, ...children) => ({ type, props: props ?? {}, children: children.flat(Infinity) }),
-  useState: (init) => [init, () => {}],
+  useState: (init) => [hookState && typeof init === 'object' && init !== null && init.status ? hookState : init, () => {}],
   useMemo: (fn) => fn(),
   useEffect: () => {},
   useSyncExternalStore: (_sub, snap) => snap(),
@@ -111,11 +115,10 @@ test('运行状态：有数据时显示四格状态，不显示设备地址', ()
     { info: { asr: { ready: true, provider: 'sensevoice' }, voice: 'chirp' }, want: ['运行中', '在线', '本机模型', '机械哔嘟声'] },
     { info: { asr: { ready: true, provider: 'deepseek' }, voice: 'chirp' }, want: ['运行中', '在线', 'DeepSeek 云端', '机械哔嘟声'] },
   ]
-  const saved = React.useState
   try {
     for (const { info: extra, want } of cases) {
       const info = { device: { online: true, ip: '1.2.3.4', last_seen_s: 3 }, lan: ['http://1.2.3.4:8787'], tasks: { total: 2, done: 1 }, ...extra }
-      React.useState = () => [{ status: 'up', info }, () => {}]
+      hookState = { status: 'up', info }
       const { api } = load()
       let Page
       api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
@@ -123,26 +126,37 @@ test('运行状态：有数据时显示四格状态，不显示设备地址', ()
       for (const s of want) assert.ok(text.includes(s), `缺少：${s}`)
       assert.ok(!text.includes('1.2.3.4'), '页面上不该出现设备地址')
     }
-  } finally { React.useState = saved }
+  } finally { hookState = null }
 })
 
-test('选了云端识别但没填 Key：退回本机，并在页面上指路去设置里填', () => {
-  const info = {
-    device: { online: true, last_seen_s: 3 }, lan: [], tasks: { total: 0, done: 0 },
-    asr: { ready: true, provider: 'sensevoice', note: '选了云端识别但没填 DeepSeek API Key，先用本机模型', missingKey: true }, voice: 'chirp',
+test('语音识别开关在插件页上：两个选项 + 云端时要填 Key；没 Key 时选中的是实际在用的那个', () => {
+  const render = (asr) => {
+    const info = { device: { online: true, last_seen_s: 3 }, lan: [], tasks: { total: 0, done: 0 }, voice: 'chirp', asr }
+    hookState = { status: 'up', info }
+    try {
+      const { api } = load()
+      let Page
+      api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
+      return textOf(React.createElement(Page, {})).join('')
+    } finally { hookState = null }
   }
-  const saved = React.useState
-  React.useState = () => [{ status: 'up', info }, () => {}]
-  try {
-    const { api } = load()
-    let Page
-    api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
-    const text = textOf(React.createElement(Page, {})).join('')
-    assert.ok(text.includes('本机模型'), '要显示实际在用本机模型')
-    assert.ok(text.includes('还没填 API Key'), `要提示去填 Key，实际：${text.slice(0, 200)}`)
-    assert.ok(text.includes('speechKey') || text.includes('DeepSeek API Key'), '要指出填在哪个字段')
-    assert.ok(!text.includes('DeepSeek 云端识别中'), '不该假装云端可用')
-  } finally { React.useState = saved }
+
+  // 本机：两个选项都在，说明写清“不出这台电脑”，并且不逼着填 Key
+  const local = render({ ready: true, provider: 'sensevoice', mode: 'sensevoice', hasKey: false })
+  for (const t of ['语音识别', '本机模型', 'DeepSeek 云端', '录音不出这台电脑', '录音只在这台电脑上识别']) {
+    assert.ok(local.includes(t), `缺少：${t}`)
+  }
+  assert.ok(!local.includes('保存 Key'), '用本机时不该出现填 Key 的保存按钮')
+
+  // 选了云端、也有 Key：显示出来，并且提示录音会上传
+  const cloud = render({ ready: true, provider: 'deepseek', mode: 'deepseek', hasKey: true })
+  assert.ok(cloud.includes('DeepSeek 云端'))
+  assert.ok(cloud.includes('录音会上传给 DeepSeek'), '云端要提示录音会上传')
+
+  // 选了云端但 Key 没了：实际用本机，页面也要如实说，并给填 Key 的入口
+  const missing = render({ ready: true, provider: 'sensevoice', mode: 'deepseek', hasKey: false, missingKey: true })
+  assert.ok(missing.includes('先用本机'), `要说清现在实际用本机：${missing.slice(0, 120)}`)
+  assert.ok(missing.includes('保存 Key'), '要能就地填 Key（保存按钮）')
 })
 
 test('对话入口预填的话会先让 AI 读开发说明', () => {
@@ -159,14 +173,13 @@ test('对话入口预填的话会先让 AI 读开发说明', () => {
 test('新设备请求连接：配对码和“允许/拒绝”显示在插件页；没有请求时不显示', () => {
   const render = (pairing) => {
     const info = { asr: { ready: true }, voice: 'chirp', device: { online: false, last_seen_s: null }, tasks: { total: 0, done: 0 }, pairing }
-    const saved = React.useState
-    React.useState = (init) => [typeof init === 'object' && init?.status ? { status: 'up', info } : init, () => {}]
+    hookState = { status: 'up', info }
     try {
       const { api } = load()
       let Page
       api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
       return textOf(React.createElement(Page, {})).join('')
-    } finally { React.useState = saved }
+    } finally { hookState = null }
   }
   const withReq = render([{ code: '4821', ip: '192.168.1.9', age_s: 3 }])
   for (const s of ['4821', '有一台新设备请求连接', '允许', '拒绝']) assert.ok(withReq.includes(s), `缺少：${s}`)

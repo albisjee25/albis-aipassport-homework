@@ -6,7 +6,7 @@ Turns the homework screenshots teachers post in parent group chats into a checkl
 
 Everything runs on your own computer inside DeepSeek Harness: the plugin uses the model you are signed in with, recognises speech locally (SenseVoice via sherpa-onnx), and keeps the child's data in `~/.dsh/homework-helper/`.
 
-**Privacy note:** recognition is local by default (`asrProvider = sensevoice`). If you switch `asrProvider` to `deepseek`, the child's recordings are uploaded to DeepSeek for transcription — that needs an API key in the `speechKey` setting, and the plugin falls back to the local model when the key is missing.
+**Privacy note:** recognition is local by default. The plugin page has a “语音识别 / speech recognition” block right under the status cards: pick **local model** (recordings never leave this computer) or **DeepSeek cloud** (faster, no 230 MB download, but recordings are uploaded and it needs an API key, pasted right there). Picking cloud without a key keeps you on the local model, and the page always shows what is actually in use.
 
 ## What you need
 

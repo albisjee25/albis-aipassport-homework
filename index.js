@@ -12,6 +12,7 @@ import { createSpeechKey } from './lib/speech-key.js'
 import { Brain } from './lib/llm.js'
 import { migrate } from './lib/migrate.js'
 import { Pairing } from './lib/pairing.js'
+import { ASR_MODES, settingsStore } from './lib/settings.js'
 import { updateChecker } from './lib/updates.js'
 import { startServer } from './lib/server.js'
 import { registerTools } from './lib/tools.js'
@@ -94,8 +95,18 @@ export async function apply(ctx, config = {}) {
   if (moved.length) logger.info(`[homework] 已从旧版搬来：${moved.join('、')}`)
   const token = deviceToken(dataDir)
 
-  // 云端语音识别用的 DeepSeek API Key（设置里填的 → Harness 凭据 → 环境变量）
-  const speechKey = createSpeechKey(ctx, () => cfg.speechKey, { log: logger })
+  // 插件页上的选择（dataDir/settings.json）优先于 Harness 设置页里的默认值 —— 家长在页面上改一次就生效
+  const store = settingsStore(join(dataDir, 'settings.json'), logger)
+  const asrMode = () => {
+    const v = store.get().asrProvider
+    return ASR_MODES.includes(v) ? v : cfg.asrProvider
+  }
+  // 云端语音识别用的 DeepSeek API Key（插件页/设置页填的 → Harness 凭据 → 环境变量）
+  // 页面上清空 Key 就是清空，不能又悄悄回落到 Harness 设置里的那个：所以分“没设过”和“设成空”两种
+  const speechKey = createSpeechKey(ctx, () => {
+    const saved = store.get().speechKey
+    return typeof saved === 'string' ? saved : cfg.speechKey
+  }, { log: logger })
   await speechKey.refresh()
 
   const voiceCfg = () => {
@@ -114,13 +125,15 @@ export async function apply(ctx, config = {}) {
   const remoteAsr = new DeepSeekASR(() => speechKey.get(), { log: logger })
   const asr = new RoutingASR({
     local: localAsr, remote: remoteAsr,
-    getMode: () => cfg.asrProvider, getKey: () => speechKey.current(), log: logger,
+    getMode: () => asrMode(), getKey: () => speechKey.current(), log: logger,
   })
-  const state = { asrNote: '' }
+  const state = { asrNote: '', localLoading: false }
   const abort = new AbortController()
-  const useLocal = () => cfg.asrProvider === 'sensevoice' || !speechKey.current()
-  ;(async () => {
-    if (!useLocal()) { logger.info('[homework] 语音识别用 DeepSeek 云端（录音会上传）'); return }
+  const useLocal = () => asrMode() === 'sensevoice' || !speechKey.current()
+
+  /** 下好/加载好本机模型。启动时调一次，家长在页面上切回本机时再调一次（下载不阻塞请求）。 */
+  async function ensureLocal() {
+    if (localAsr.rec || state.localLoading) return
     if (!modelReady(modelDir) && cfg.migrateFrom) {
       const old = join(cfg.migrateFrom, '..', 'models', 'sense-voice')
       if (modelReady(old)) {
@@ -129,12 +142,23 @@ export async function apply(ctx, config = {}) {
         logger.info('[homework] 已复制旧版的语音识别模型')
       }
     }
-    state.asrNote = '正在下载语音模型'
-    await ensureModel(modelDir, { log: logger, signal: abort.signal })
-    localAsr.load()
-    state.asrNote = ''
-    logger.info('[homework] 语音识别已就绪（本机模型）')
-  })().catch((e) => { state.asrNote = e.message; logger.error(`[homework] ${e.message}`) })
+    state.localLoading = true
+    state.asrNote = modelReady(modelDir) ? '正在加载本机语音模型' : '正在下载语音模型'
+    try {
+      await ensureModel(modelDir, { log: logger, signal: abort.signal })
+      localAsr.load()
+      state.asrNote = ''
+      logger.info('[homework] 语音识别已就绪（本机模型）')
+    } catch (e) {
+      state.asrNote = e.message
+      logger.error(`[homework] ${e.message}`)
+    } finally {
+      state.localLoading = false
+    }
+  }
+
+  if (useLocal()) void ensureLocal()
+  else logger.info('[homework] 语音识别用 DeepSeek 云端（录音会上传）')
 
   const brain = new Brain(ctx, () => cfg, logger)
   const voice = new Voice(dataDir, voiceCfg, logger)
@@ -147,13 +171,29 @@ export async function apply(ctx, config = {}) {
     asrReady: asr.ready(),
     asrNote: state.asrNote || asr.note() || (asr.ready() ? '' : '启动中'),
     asrMissingKey: asr.missingKey(),
+    asrMode: asrMode(),
+    asrHasKey: Boolean(speechKey.current()),
   })
   // 插件有没有新版本：从 Harness 的插件管理器看本机装的版本，再去 npm 查最新（只有从插件市场装的才会提示）
   const pkgName = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).name
   const checkUpdates = updateChecker({ name: pkgName, getManager: () => { try { return ctx.get?.('pluginManager') } catch { return undefined } } })
   const pairing = new Pairing({ file: join(dataDir, 'devices.json'), legacyToken: token, log: logger }).startDiscovery(cfg.port)
+  /** 插件页上改语音识别：写 settings.json、立刻刷新 Key、需要本机模型时后台开始下载。 */
+  async function saveAsr({ provider, key } = {}) {
+    const next = {}
+    if (ASR_MODES.includes(provider)) next.asrProvider = provider
+    if (typeof key === 'string') next.speechKey = key.trim()
+    if (Object.keys(next).length) store.patch(next)
+    speechKey.invalidate()
+    await speechKey.refresh()
+    if (useLocal()) void ensureLocal()
+    logger.info(`[homework] 语音识别现在用：${asr.provider === 'deepseek' ? 'DeepSeek 云端' : '本机模型'}`)
+    return getInfo()
+  }
+
   const server = await startServer({
-    hw, token, pairing, checkUpdates, port: cfg.port, host: cfg.host, log: logger, getVoiceName: () => voice.provider, getInfo,
+    hw, token, pairing, checkUpdates, port: cfg.port, host: cfg.host, log: logger,
+    getVoiceName: () => voice.provider, getInfo, saveAsr,
   })
   logger.info(`[homework] 作业助手已启动：http://127.0.0.1:${cfg.port}（设备令牌见 ${join(dataDir, 'device_token')}）`)
 

@@ -1,6 +1,6 @@
 {
   "name": "albis-aipassport-homework",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
   "author": "albis",
   "license": "MIT",
@@ -68,6 +68,12 @@
   },
   "homeworkHelper": {
     "releaseNotes": [
+      {
+        "version": "0.7.0",
+        "date": "2026-11-17",
+        "zh": "### 新功能\n- **语音识别直接在插件页上切**：「运行状态」下面多了一块「语音识别」，点「本机模型 / DeepSeek 云端」就换，不用再进设置页、也不用重启 Harness。选云端时旁边出现 Key 输入框，粘贴后点「保存 Key」立刻生效。\n- **页面不会骗人**：没有 Key 时不会把云端画成已选中，状态卡和设置区显示的都是实际在用的那个。\n### 需要你知道\n- 默认仍是本机模型，孩子的录音不出这台电脑；换云端才会把录音上传给 DeepSeek。\n- 以前在 Harness 设置页里改的 `asrProvider` / `speechKey` 照样有效，但插件页上选过之后以插件页为准（存在 `~/.dsh/homework-helper/settings.json`）。\n- 只改插件，设备固件不用重刷。",
+        "en": "### New\n- **Speech recognition is switchable right on the plugin page**: a new block under the status cards lets you pick the local model or DeepSeek cloud with one click — no settings page, no Harness restart. Choosing cloud reveals an API-key field; paste the key, hit “保存 Key”, done.\n- **What you see is what runs**: without a key the cloud option is not shown as selected, so the status card and the switch never disagree.\n### Please note\n- The default is still the local model — recordings never leave this computer. Only the cloud option uploads them to DeepSeek.\n- The `asrProvider` / `speechKey` fields in Harness settings still work, but once you pick on the plugin page that choice wins (stored in `~/.dsh/homework-helper/settings.json`).\n- Plugin only; no firmware re-flash needed."
+      },
       {
         "version": "0.6.1",
         "date": "2026-11-17",
