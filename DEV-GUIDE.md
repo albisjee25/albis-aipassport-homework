@@ -17,6 +17,8 @@
 
 源码仓库：https://github.com/albisjee25/albis-aipassport-homework（插件在仓库根目录，设备固件在 `firmware/`）。
 
+> 这个 Node 插件就是作业助手的后端，唯一一份。早期的 Python 版 relay 已废弃，不要再往那边加功能，也不要为了“保持两边一致”去改它。
+
 | 部分 | 位置 | 说明 |
 |---|---|---|
 | Harness 插件（电脑端服务） | 这份说明所在的目录。从插件市场装的在 `~/.dsh/profiles/<配置名>/node_modules/albis-aipassport-homework/` | Node 写的，Harness 启动时自动运行，端口 8787 |
