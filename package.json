@@ -1,6 +1,6 @@
 {
   "name": "albis-aipassport-homework",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
   "author": "albis",
   "license": "MIT",
@@ -67,6 +67,12 @@
   },
   "homeworkHelper": {
     "releaseNotes": [
+      {
+        "version": "0.6.0",
+        "date": "2026-11-17",
+        "zh": "### 新功能\n- **机器人的声音换成 DeepSeek 语音合成**：设置里可以选女声 `stella` 或男声 `tide`，还能决定要不要叠加机器人音效。原来那套机械哔嘟声还在，改成 `voice.provider = chirp` 就能换回去。\n- **语音识别也改用 DeepSeek**：不再下载 230MB 的本机模型，开机就能用，识别更快。想完全不出本机，把 `asrProvider` 改成 `sensevoice`。\n### 需要你知道\n- 语音要一个 DeepSeek API Key：填在设置里的 `speechKey`。留空会依次找 Harness 凭据 `DEEPSEEK_API_KEY`、环境变量、老版本留下的 `~/.config/homework-helper/deepseek.key`。\n- **隐私变化**：默认配置下，孩子的录音会上传给 DeepSeek 做识别（以前只在本机）。介意就把 `asrProvider` 改回 `sensevoice`。\n- 只改插件，设备固件不用重刷。",
+        "en": "### New\n- **The robot now speaks with DeepSeek TTS**: pick the female `stella` or male `tide` voice, and choose whether to layer the robot effect on top. The old buzzy chirp voice is still there — set `voice.provider = chirp`.\n- **Speech recognition moved to DeepSeek too**: no 230 MB local model to download, ready right after install, and faster. Set `asrProvider = sensevoice` to keep recognition on this machine.\n### Please note\n- Speech needs a DeepSeek API key in the `speechKey` setting. Left empty, the plugin looks for the Harness credential `DEEPSEEK_API_KEY`, then the environment, then the legacy `~/.config/homework-helper/deepseek.key`.\n- **Privacy change**: with the defaults, the child's recordings are uploaded to DeepSeek for transcription (they used to stay on this machine). Switch `asrProvider` back to `sensevoice` if that matters to you.\n- Plugin only; no firmware re-flash needed."
+      },
       {
         "version": "0.5.0",
         "date": "2026-11-17",

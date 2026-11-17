@@ -10,7 +10,7 @@
 2. **密钥和令牌不进对话**：不要让家长把密钥贴进对话，也不要把设备令牌、密钥打印到回复里。密钥填在 Harness 插件设置页（带锁的字段）。
 3. **不自动删除文件**。要删先说明是什么、为什么删，等家长同意。
 4. 改代码前先看 git 状态，在新分支上改，改完要能退回；不在 git 里的文件，改之前先复制一份备份。
-5. 孩子的作业记录和录音属于隐私，只留在这台电脑，不要上传或发到外部服务。
+5. 孩子的作业记录属于隐私，只留在这台电脑；录音除了识别不再上传、也不要发给别的服务。要跟家长说清楚一件事：语音识别默认走 DeepSeek 云端（`asrProvider = deepseek`），孩子的**录音会上传给 DeepSeek 做识别**；想完全不出本机，把 `asrProvider` 改成 `sensevoice`（要下 230MB 模型）。改这个默认值之前必须先问家长。
 6. 如果插件目录里有 `MAINTAINER.local.md`，说明这是维护者本人的电脑：先读它，里面的路径和流程优先。
 
 ## 项目地图
@@ -37,8 +37,10 @@
 | `lib/durations.js` | 用时统计：怎么记录、怎么算平均、新作业时长怎么定 |
 | `lib/classify.js` | 手动加作业时的学科兜底判断（模型不可用才用，按关键词判语数外） |
 | `lib/prompts.js` | 截图识别、语音理解、作业归类、手动加作业判学科的提示词（措辞改动要谨慎；`{grade}` 会换成设置里的年级） |
-| `lib/asr.js` | 本机语音识别（SenseVoice） |
-| `lib/voice.js`、`voice/` | 机器人的声音：`chirp.js` 哔嘟声（默认）、`azure.js` 微软语音示例；接入方法见 `voice/README.md` |
+| `lib/asr.js` | 本机语音识别（SenseVoice，`asrProvider = sensevoice` 时用） |
+| `lib/asr-deepseek.js`、`lib/asr-route.js` | DeepSeek 云端语音识别，以及“云端还是本机”的选择（默认云端） |
+| `lib/speech-key.js` | 语音用的 DeepSeek API Key 从哪来（设置为先，其次 Harness 凭据 / 环境变量） |
+| `lib/voice.js`、`voice/` | 机器人的声音：`deepseek.js` DeepSeek 语音合成（默认）、`chirp.js` 哔嘟声、`azure.js` 微软语音示例；接入方法见 `voice/README.md` |
 | `lib/tools.js` | 你在对话里能用的作业工具（`homework_list`、`homework_status`、`homework_dev_guide` 等） |
 | `lib/updates.js`、`client.js` | 插件更新：电脑端查 npm 上的新版本和更新日志（`package.json` 的 `homeworkHelper.releaseNotes`），插件页显示横幅，点“更新”用 Harness 插件管理器安装 |
 | `lib/pairing.js` | 新设备配对：局域网发现（UDP 8788）、配对码、发设备令牌（存 `devices.json`） |

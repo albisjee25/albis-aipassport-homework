@@ -4,7 +4,9 @@
 
 Turns the homework screenshots teachers post in parent group chats into a checklist on a **FoloToy AI Passport** device. The child holds a button to talk to a pixel-art robot, and works through the list one timed task at a time. The plugin learns how long each kind of homework actually takes.
 
-Everything runs on your own computer inside DeepSeek Harness: the plugin uses the model you are signed in with, recognises speech locally (SenseVoice via sherpa-onnx), and keeps the child's data in `~/.dsh/homework-helper/`.
+Everything runs inside DeepSeek Harness on your own computer: the plugin uses the model you are signed in with, and speaks and listens through DeepSeek's speech synthesis and recognition (one API key). The child's data stays in `~/.dsh/homework-helper/`.
+
+**Privacy note:** with the default `asrProvider = deepseek`, the child's recordings are uploaded to DeepSeek for transcription. Set `asrProvider` to `sensevoice` to keep recognition on this machine instead (downloads a ~230 MB model, via sherpa-onnx); TTS can stay on DeepSeek or switch to `chirp` (local beeps, no key).
 
 ## What you need
 

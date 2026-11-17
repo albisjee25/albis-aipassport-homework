@@ -47,7 +47,11 @@ before(async () => {
     tools: { register: (def) => { tools[def.name] = def } },
     effect: (fn) => { const g = fn(); const r = g.next(); cleanup.push(r.value) },
   }
-  await apply(ctx, { port: PORT, host: '127.0.0.1', dataDir })
+  // 测试里不碰网络：语音识别用本地模型、声音用 chirp，Key 给个占位值免得去读本机的旧 key 文件
+  await apply(ctx, {
+    port: PORT, host: '127.0.0.1', dataDir,
+    asrProvider: 'sensevoice', speechKey: 'test-key-not-used', voice: { provider: 'chirp' },
+  })
   token = readFileSync(join(dataDir, 'device_token'), 'utf8').trim()
   await new Promise((r) => setTimeout(r, 800))   // 等语音模型加载
 })

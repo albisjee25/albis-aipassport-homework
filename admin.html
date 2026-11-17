@@ -512,7 +512,7 @@ $("#audio").onchange = async (e) => {
   fd.append("file", f);
   try {
     const r = await api("/api/simulate/audio", { method: "POST", body: fd });
-    kid.innerHTML = `🎙 ${esc(r.transcript || "（没听清）")}<small>本机识别 · ${r.timing.asr ?? "-"} 秒</small>`;
+    kid.innerHTML = `🎙 ${esc(r.transcript || "（没听清）")}<small>${r.asr === "deepseek" ? "DeepSeek 云端识别" : "本机识别"} · ${r.timing.asr ?? "-"} 秒</small>`;
     wait.remove();
     showReply(r);
   } catch (err) { wait.innerHTML = "出错了：" + esc(err.message); }

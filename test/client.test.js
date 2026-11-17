@@ -107,16 +107,22 @@ test('对话入口：Harness 不支持开会话时变灰，不抛错', () => {
 })
 
 test('运行状态：有数据时显示四格状态，不显示设备地址', () => {
-  const info = { asr: { ready: true }, voice: 'chirp', device: { online: true, ip: '1.2.3.4', last_seen_s: 3 }, lan: ['http://1.2.3.4:8787'], tasks: { total: 2, done: 1 } }
+  const cases = [
+    { info: { asr: { ready: true, provider: 'sensevoice' }, voice: 'chirp' }, want: ['运行中', '在线', '本机模型', '机械哔嘟声'] },
+    { info: { asr: { ready: true, provider: 'deepseek' }, voice: 'deepseek' }, want: ['运行中', '在线', 'DeepSeek 云端', 'DeepSeek 语音'] },
+  ]
   const saved = React.useState
-  React.useState = () => [{ status: 'up', info }, () => {}]
   try {
-    const { api } = load()
-    let Page
-    api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
-    const text = textOf(React.createElement(Page, {})).join('')
-    for (const s of ['运行中', '在线', '已就绪', '机械哔嘟声']) assert.ok(text.includes(s), `缺少：${s}`)
-    assert.ok(!text.includes('1.2.3.4'), '页面上不该出现设备地址')
+    for (const { info: extra, want } of cases) {
+      const info = { device: { online: true, ip: '1.2.3.4', last_seen_s: 3 }, lan: ['http://1.2.3.4:8787'], tasks: { total: 2, done: 1 }, ...extra }
+      React.useState = () => [{ status: 'up', info }, () => {}]
+      const { api } = load()
+      let Page
+      api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
+      const text = textOf(React.createElement(Page, {})).join('')
+      for (const s of want) assert.ok(text.includes(s), `缺少：${s}`)
+      assert.ok(!text.includes('1.2.3.4'), '页面上不该出现设备地址')
+    }
   } finally { React.useState = saved }
 })
 

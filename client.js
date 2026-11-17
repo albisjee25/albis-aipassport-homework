@@ -247,7 +247,7 @@ button:has(.hwu-pill){position:relative}
       return { ...state, port }
     }
 
-    const VOICE_NAME = { chirp: '机械哔嘟声', azure: '微软 Azure 语音', custom: '自定义语音' }
+    const VOICE_NAME = { deepseek: 'DeepSeek 语音', chirp: '机械哔嘟声', azure: '微软 Azure 语音', custom: '自定义语音' }
     const ago = (s) => s >= 120 ? Math.round(s / 60) + ' 分钟' : s + ' 秒'
 
     // 对话入口卡片上的小图标
@@ -321,7 +321,10 @@ button:has(.hwu-pill){position:relative}
         : ['warn', '还没连上过', '给设备通电、连好 Wi-Fi；第一次连接时，设备屏幕会出现 4 位配对码，本页最上方会出现“允许”按钮。']
       const alerts = []
       if (status === 'down') alerts.push('作业助手服务没在运行。')
-      if (up && !info.asr.ready) alerts.push(`语音识别${info.asr.note || '启动中'}。第一次使用要下载约 230MB 的模型，下载完才能说话。`)
+      const cloud = info?.asr?.provider === 'deepseek'
+      if (up && !info.asr.ready) alerts.push(cloud
+        ? `语音识别没就绪：${info?.asr?.note || '没有可用的 API Key'}。在插件设置里填 DeepSeek API Key（speechKey），或者把 asrProvider 改成 sensevoice 用本机模型。`
+        : `语音识别${info.asr.note || '启动中'}。第一次使用要下载约 230MB 的模型，下载完才能说话。`)
       if (device[2]) alerts.push(device[2])
       if (up && d?.rejected) alerts.push(`有 ${d.rejected} 次设备请求因令牌不对被拒绝。`)
       const stat = (label, kind, value, tip) => h('div', { key: label, className: 'hwh-stat', title: tip || undefined },
@@ -332,7 +335,7 @@ button:has(.hwu-pill){position:relative}
         h('div', { className: 'hwh-stats' },
           stat('服务', up ? 'ok' : status === 'checking' ? '' : 'bad', up ? '运行中' : status === 'checking' ? '检测中' : '没连上', up ? `本机 ${port} 端口` : null),
           stat('设备', device[0], device[1], device[3]),
-          stat('语音识别', !up ? '' : info.asr.ready ? 'ok' : 'warn', !up ? wait : info.asr.ready ? '已就绪' : '准备中', up ? '在本机识别，录音不上传' : null),
+          stat('语音识别', !up ? '' : info.asr.ready ? 'ok' : 'warn', !up ? wait : info.asr.ready ? (cloud ? 'DeepSeek 云端' : '本机模型') : '准备中', up ? (cloud ? '录音会上传给 DeepSeek 做识别；想不出本机就把 asrProvider 改成 sensevoice' : '在本机识别，录音不上传') : null),
           stat('机器人声音', null, up ? (VOICE_NAME[info.voice] || info.voice) : wait)),
         alerts.map((a) => h('div', { key: a, className: 'hwh-alert' }, h('span', null, a),
           ok ? h('button', { type: 'button', onClick: () => startChat(FIX_PROMPT + a) }, '让 AI 排查') : null)))

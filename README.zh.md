@@ -2,7 +2,7 @@
 
 把家长群里的作业截图变成清单，孩子在 AI Passport 上按住说话、一项一项计时。陪着孩子的是一个像素小机器人，会记住每类作业实际要做多久。
 
-**有了这个插件，你不需要**：Python、DeepSeek API Key（直接用 Harness 里登录的账号）、任何语音密钥（默认机械哔嘟声）。
+**有了这个插件，你不需要**：Python、装模型、任何第三方语音密钥。理解作业用 Harness 里登录的 DeepSeek 账号；说话和听话默认走 DeepSeek 的语音合成和识别，填一次 API Key 就行。
 
 ## 你需要准备
 
@@ -18,7 +18,7 @@
 dsh plugin --profile desktop add albis-aipassport-homework
 ```
 
-装好后重启 Harness。第一次启动会在后台下载语音识别模型（约 230MB，国内镜像优先）。
+装好后重启 Harness。语音默认走 DeepSeek 云端，**不用下 230MB 模型**；想在本地识别再改设置（见下面的“隐私”）。
 
 **2. 给设备装作业助手固件**：设备出厂时没有作业助手程序。点插件页的“修改设备设置或刷机”，对 AI 说“帮我第一次给设备装上作业助手固件”。AI 会按开发说明下载本仓库的 `firmware/`、编译，并在**你同意后**刷机（也可以直接从 FoloToy AI Passport 玩法社区刷入）。刷完用“蓝牙配网-FoloToy AI PASSPORT”小程序给设备配网，然后设备屏幕上会出现一个 4 位**配对码**：回到插件页，最上方会出现同样的数字，点“允许”就连上了。
 
@@ -52,10 +52,13 @@ dsh plugin --profile desktop add albis-aipassport-homework
 
 ## 机器人的声音
 
-默认是本地合成的机械哔嘟声，屏幕照常显示文字。想换，在插件设置里改 `voice.provider`：
+默认用 DeepSeek 语音合成（`voice.provider = deepseek`），屏幕照常显示文字。在插件设置里可以调：
 
-- `azure`：微软 Azure 语音（示例）。填 `voice.azureKey`、`voice.azureRegion`。
-- `custom`：自己的文件，`voice.customModule` 填绝对路径。**不会写？** 对 Harness 助手说“照 voice/azure.js 的写法，帮我接入 ×× 的语音合成”，写法见 `voice/README.md`。
+- `voice.deepseekVoiceId`：`stella`（女声，默认）或 `tide`（男声）。
+- `voice.deepseekRobot`：给声音叠加机器人音效，默认开；关掉就是自然语音。
+- 想换别的声音：`voice.provider` 改成 `chirp`（本地哔嘟声，不要密钥）或 `azure`（示例），也可以 `custom` 接自己的服务（写法见 `voice/README.md`）。
+
+语音识别也默认走 DeepSeek（`asrProvider = deepseek`）。两件事都用一个 `speechKey`：插件设置里的这个字段填一次即可；留空会依次找 Harness 凭据 `DEEPSEEK_API_KEY`、环境变量、老版本留下的 `~/.config/homework-helper/deepseek.key`。**Key 从哪拿**：DeepSeek 开放平台的 API Key（要用带语音权限的那个账号）。
 
 ## 孩子的年级
 
@@ -63,8 +66,8 @@ dsh plugin --profile desktop add albis-aipassport-homework
 
 ## 隐私
 
-- 孩子的录音只在本机识别，不上传。
-- 发给模型的只有截图和文字；孩子的话只直接问模型，不进入 Harness 的智能体对话，也不会被当成操作电脑的指令。
+- **默认会把孩子的录音上传给 DeepSeek 做识别**（`asrProvider = deepseek`）。这是用云端换“不用下模型、识别更准”的代价。想完全不出本机：把 `asrProvider` 改成 `sensevoice`，第一次启动会下载约 230MB 的模型，之后录音只在这台电脑上识别。
+- 录音除了识别之外不发给任何服务；发给模型的只有截图和文字，孩子的话只直接问模型，不进入 Harness 的智能体对话，也不会被当成操作电脑的指令。
 - 数据在 `~/.dsh/homework-helper/`。
 
 ## 开发
