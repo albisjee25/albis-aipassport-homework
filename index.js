@@ -36,6 +36,7 @@ export const DEFAULTS = {
 
 // 设置页的字段说明。在 Harness 外（单元测试）取不到 schemastery 时没有 Config，不影响运行。
 export let Config
+let configError = ''
 try {
   const { default: z } = await import('@deepseek-ai/schemastery')
   Config = z.object({
@@ -59,11 +60,14 @@ try {
       customModule: z.string().default('').description('自定义声音文件的绝对路径，写法见 voice/README.md'),
     }).description('机器人声音'),
   })
-} catch { Config = undefined }
+} catch (e) { Config = undefined; configError = e.message }
 
 const logger = {
   info: (m) => console.log(m), warn: (m) => console.warn(m), error: (m) => console.error(m),
 }
+
+// 设置表单是 Harness 拿 Config 生成的：没有它，设置页里这个插件就是一片空白。
+if (!Config) logger.warn(`[homework] 没能载入设置项（@deepseek-ai/schemastery：${configError}），设置页里将看不到端口、年级、语音识别这些选项`)
 
 function deviceToken(dataDir) {
   const p = join(dataDir, 'device_token')

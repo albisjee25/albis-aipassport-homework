@@ -1,6 +1,6 @@
 {
   "name": "albis-aipassport-homework",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
   "author": "albis",
   "license": "MIT",
@@ -40,6 +40,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.1",
     "sherpa-onnx-node": "^2.0.1"
   },
   "engines": {
@@ -67,6 +68,12 @@
   },
   "homeworkHelper": {
     "releaseNotes": [
+      {
+        "version": "0.6.1",
+        "date": "2026-11-17",
+        "zh": "### 修复\n- **设置项终于能看到了**：“设置 → 插件 → 作业助手”里以前只有一片空白——插件没声明 `@deepseek-ai/schemastery` 这个依赖，用本地目录（`link:`）安装时取不到它，设置表单就没被生成出来。现在补上依赖，端口、年级、语音识别方式、DeepSeek API Key 都能在设置里改。\n- 取不到设置组件时会在日志里明说，不再静默降级。",
+        "en": "### Fixed\n- **Plugin settings were invisible**: the “Settings → Plugins → Homework helper” form came up empty, because the plugin never declared the `@deepseek-ai/schemastery` dependency — with a `link:` install it could not be resolved, so no form was generated. The dependency is declared now: port, grade, speech-recognition mode and the DeepSeek API key are all editable in settings.\n- A missing settings schema is now logged instead of silently ignored."
+      },
       {
         "version": "0.6.0",
         "date": "2026-11-17",
