@@ -1,6 +1,6 @@
 {
   "name": "albis-aipassport-homework",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "AI Passport homework helper for DeepSeek Harness: turns homework screenshots into a checklist on the AI Passport device, with push-to-talk and per-task timers. AI Passport 作业助手。",
   "author": "albis",
   "license": "MIT",
@@ -67,6 +67,12 @@
   },
   "homeworkHelper": {
     "releaseNotes": [
+      {
+        "version": "0.5.0",
+        "date": "2026-11-17",
+        "zh": "### 新功能\n- **手动加的作业也会自动分类**：在家长后台手写一项作业（例如「语文课后预习」），AI 会判断学科和作业类型，不再全落到「其他」。类型用来统计这类作业平时要做多久；没自己填分钟数时，按这类作业的历史用时给时长。\n- **添加时有反馈**：识别期间按钮显示「识别中…」，失败会在下方提示，不会悄悄什么都没发生。\n### 说明\n- 只改网页后台，设备固件不用重刷。",
+        "en": "### New\n- **Manual entries get classified too**: typing an item in the parent page (e.g. 语文课后预习) now lets the AI decide the subject and the task type instead of dumping everything into 其他. The type feeds the per-type duration stats, and when the parent leaves the minutes blank the learned duration for that type is used.\n- **Feedback while adding**: the button shows 识别中… while it works, and failures are reported under the row instead of silently doing nothing.\n### Notes\n- Parent page only; no firmware re-flash needed."
+      },
       {
         "version": "0.4.1",
         "date": "2026-11-13",

@@ -26,6 +26,7 @@ function fakeLlm() {
           sent.push(opts)
           let reply
           if (opts.system.includes('作业规划助手')) reply = { tasks: [{ title: '抄写单词4遍', subject: '英语', minutes: 15, optional: false, note: '', category: '英语抄写' }], summary: '一项' }
+          else if (opts.system.includes('手动加了一项作业')) reply = { subject: '语文', category: '课文预习' }
           else if (opts.system.includes('陪五年级孩子')) reply = { actions: [{ type: 'add', quote: '背古诗', subject: '语文', minutes: 10, minutes_said: false, category: '古诗' }], reply: '记好啦', mood: 'happy' }
           else reply = { assign: [], merge: [] }
           yield { type: 'text-delta', index: 0, text: '```json\n' + JSON.stringify(reply) + '\n```' }
@@ -79,6 +80,25 @@ test('家长手动加、改、移动、删除', async () => {
   assert.equal(r.status, 404)
   r = await api(`/api/tasks/${id}`, { method: 'DELETE' })
   assert.equal(r.body.tasks.length, 0)
+})
+
+test('手动加的作业也判学科和类型', async () => {
+  // 学科学科由假模型给（语文 / 课文预习）；没填分钟时按这类作业的历史用时，没有历史就用 15 分钟
+  let r = await post('/api/tasks', { title: '语文课后预习' })
+  assert.equal(r.status, 200)
+  let t = r.body.tasks.find((x) => x.title === '语文课后预习')
+  assert.equal(t.subject, '语文')
+  assert.equal(t.category, '课文预习')
+  assert.equal(t.minutes, 15)
+  assert.equal(t.minutes_from, 'ai')
+  // 家长自己填了分钟就用他的
+  r = await post('/api/tasks', { title: '口算一页', minutes: 8 })
+  t = r.body.tasks.find((x) => x.title === '口算一页')
+  assert.equal(t.minutes, 8)
+  assert.equal(t.minutes_from, 'set')
+  await api('/api/tasks/' + t.id, { method: 'DELETE' })
+  const first = r.body.tasks.find((x) => x.title === '语文课后预习')
+  await api('/api/tasks/' + first.id, { method: 'DELETE' })
 })
 
 test('设备接口必须带令牌', async () => {

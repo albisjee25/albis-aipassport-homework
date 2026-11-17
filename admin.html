@@ -247,10 +247,11 @@
         <div id="list"></div>
 
         <div class="add-row">
-          <input class="text" id="new-title" placeholder="手动加一项，例如：练字一页">
+          <input class="text" id="new-title" placeholder="手动加一项，例如：语文课后预习">
           <input class="text" id="new-min" type="number" min="1" max="180" value="15" style="flex:0 0 76px;text-align:center" title="分钟">
           <button class="main" id="add">添加</button>
         </div>
+        <div class="status-line" id="add-status"></div>
         <div class="foot-actions"><button class="ghost danger" id="clear">清空今天的清单</button></div>
 
         <div class="sub-sec">
@@ -272,7 +273,7 @@
       <section class="card">
         <div class="card-head"><h2>用时记录</h2><button class="ghost right" id="dur-refresh">刷新</button></div>
         <div id="durations"><div class="empty">读取中…</div></div>
-        <p class="note"><b>怎么统计：</b>孩子在设备上标“做完了”才记录，只算倒计时真正走过的时间。每天作业全部完成后，AI 把同一种作业归成一类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
+        <p class="note"><b>怎么统计：</b>孩子在设备上标“做完了”才记录，只算倒计时真正走过的时间。手动加的作业在添加时就由 AI 判断学科和作业类型；孩子说、老师截图里的作业，每天全部完成后再让 AI 归一次类。一类作业有 2 次以上记录后，新来的同类作业按最近 5 次的平均用时（向上取整到 5 分钟）设时长；你或孩子设过的时间不会被改。</p>
       </section>
     </div>
   </div>
@@ -406,11 +407,31 @@ $("#list").addEventListener("click", async (e) => {
     if (confirm(`删除「${t.title}」？`)) render(await api(`/api/tasks/${id}`, { method: "DELETE" }));
   }
 });
+let minTouched = false;
+$("#new-min").addEventListener("input", () => { minTouched = true; });
 $("#add").onclick = async () => {
-  const title = $("#new-title").value.trim();
-  if (!title) return $("#new-title").focus();
-  render(await api("/api/tasks", json("POST", { title, minutes: Number($("#new-min").value) || 15 })));
-  $("#new-title").value = "";
+  const title = $('#new-title').value.trim();
+  if (!title) return $('#new-title').focus();
+  const btn = $('#add');
+  const label = btn.textContent;
+  // 学科和作业类型由 AI 判，要等一两秒；没自己填分钟数时也让它按这类作业的历史用时来定
+  btn.disabled = true;
+  btn.textContent = "识别中…";
+  $("#add-status").textContent = "";
+  try {
+    const body = { title };
+    const m = Number($("#new-min").value);
+    if (minTouched && m) body.minutes = m;
+    render(await api("/api/tasks", json("POST", body)));
+    $("#new-title").value = "";
+    $("#new-min").value = 15;
+    minTouched = false;
+  } catch (e) {
+    $("#add-status").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 };
 $("#new-title").addEventListener("keydown", (e) => e.key === "Enter" && $("#add").click());
 $("#clear").onclick = async () => { if (confirm("清空今天的全部作业？")) render(await api("/api/clear", { method: "POST" })); };

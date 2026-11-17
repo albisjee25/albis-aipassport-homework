@@ -33,7 +33,8 @@
 | `lib/server.js` | 网页和设备用的接口。`/api/device/*` 给设备用，要带令牌 |
 | `lib/app.js`、`lib/store.js` | 作业清单的规则（谁能删、改时间、完成） |
 | `lib/durations.js` | 用时统计：怎么记录、怎么算平均、新作业时长怎么定 |
-| `lib/prompts.js` | 截图识别、语音理解、作业归类的提示词（措辞改动要谨慎；`{grade}` 会换成设置里的年级） |
+| `lib/classify.js` | 手动加作业时的学科兜底判断（模型不可用才用，按关键词判语数外） |
+| `lib/prompts.js` | 截图识别、语音理解、作业归类、手动加作业判学科的提示词（措辞改动要谨慎；`{grade}` 会换成设置里的年级） |
 | `lib/asr.js` | 本机语音识别（SenseVoice） |
 | `lib/voice.js`、`voice/` | 机器人的声音：`chirp.js` 哔嘟声（默认）、`azure.js` 微软语音示例；接入方法见 `voice/README.md` |
 | `lib/tools.js` | 你在对话里能用的作业工具（`homework_list`、`homework_status`、`homework_dev_guide` 等） |
