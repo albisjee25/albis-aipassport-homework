@@ -109,7 +109,7 @@ test('对话入口：Harness 不支持开会话时变灰，不抛错', () => {
 test('运行状态：有数据时显示四格状态，不显示设备地址', () => {
   const cases = [
     { info: { asr: { ready: true, provider: 'sensevoice' }, voice: 'chirp' }, want: ['运行中', '在线', '本机模型', '机械哔嘟声'] },
-    { info: { asr: { ready: true, provider: 'deepseek' }, voice: 'deepseek' }, want: ['运行中', '在线', 'DeepSeek 云端', 'DeepSeek 语音'] },
+    { info: { asr: { ready: true, provider: 'deepseek' }, voice: 'chirp' }, want: ['运行中', '在线', 'DeepSeek 云端', '机械哔嘟声'] },
   ]
   const saved = React.useState
   try {
@@ -123,6 +123,25 @@ test('运行状态：有数据时显示四格状态，不显示设备地址', ()
       for (const s of want) assert.ok(text.includes(s), `缺少：${s}`)
       assert.ok(!text.includes('1.2.3.4'), '页面上不该出现设备地址')
     }
+  } finally { React.useState = saved }
+})
+
+test('选了云端识别但没填 Key：退回本机，并在页面上指路去设置里填', () => {
+  const info = {
+    device: { online: true, last_seen_s: 3 }, lan: [], tasks: { total: 0, done: 0 },
+    asr: { ready: true, provider: 'sensevoice', note: '选了云端识别但没填 DeepSeek API Key，先用本机模型', missingKey: true }, voice: 'chirp',
+  }
+  const saved = React.useState
+  React.useState = () => [{ status: 'up', info }, () => {}]
+  try {
+    const { api } = load()
+    let Page
+    api.apply({ slots: { inject: (_o, fn) => fn(), register: (opts, comp) => { if (opts.name === 'main') Page = comp } } })
+    const text = textOf(React.createElement(Page, {})).join('')
+    assert.ok(text.includes('本机模型'), '要显示实际在用本机模型')
+    assert.ok(text.includes('还没填 API Key'), `要提示去填 Key，实际：${text.slice(0, 200)}`)
+    assert.ok(text.includes('speechKey') || text.includes('DeepSeek API Key'), '要指出填在哪个字段')
+    assert.ok(!text.includes('DeepSeek 云端识别中'), '不该假装云端可用')
   } finally { React.useState = saved }
 })
 

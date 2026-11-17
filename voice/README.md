@@ -1,11 +1,10 @@
 # 机器人的声音
 
-默认用 `deepseek.js`（DeepSeek 语音合成），要 API Key。想换声音，在插件设置里改 `voice.provider`：
+默认用 `chirp.js`（机器人“哔嘟”语），不联网、不要密钥。想换声音，在插件设置里改 `voice.provider`：
 
 | 值 | 说明 |
 |---|---|
-| `deepseek`（默认） | DeepSeek 语音合成。`voice.deepseekVoiceId` 选 `stella`（女）或 `tide`（男）；`voice.deepseekRobot` 叠加机器人音效（默认开）。Key 用插件设置里的 `speechKey`，留空会找 Harness 凭据 `DEEPSEEK_API_KEY` 或环境变量 |
-| `chirp` | 本地合成的哔嘟声，按字数和心情变化，不联网、不要密钥 |
+| `chirp`（默认） | 本地合成的哔嘟声，按字数和心情变化 |
 | `azure` | 微软 Azure 语音（示例）。填 `voice.azureKey` 和 `voice.azureRegion`（如 `eastasia`） |
 | `custom` | 你自己的文件：`voice.customModule` 写它的绝对路径 |
 

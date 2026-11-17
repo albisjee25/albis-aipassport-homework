@@ -29,12 +29,9 @@ export const DEFAULTS = {
   grade: '五年级',
   dataDir: '',
   migrateFrom: '',
-  asrProvider: 'deepseek',
+  asrProvider: 'sensevoice',
   speechKey: '',
-  voice: {
-    provider: 'deepseek', deepseekVoiceId: 'stella', deepseekRobot: true,
-    azureKey: '', azureRegion: '', azureVoice: '', customModule: '',
-  },
+  voice: { provider: 'chirp', azureKey: '', azureRegion: '', azureVoice: '', customModule: '' },
 }
 
 // 设置页的字段说明。在 Harness 外（单元测试）取不到 schemastery 时没有 Config，不影响运行。
@@ -50,14 +47,12 @@ try {
     timeoutSec: z.number().default(DEFAULTS.timeoutSec).description('一次模型调用最多等多少秒'),
     dataDir: z.string().default('').description('数据目录，留空用 ~/.dsh/homework-helper'),
     migrateFrom: z.string().default('').description('从旧版 Python 作业助手搬数据：填它的 data 目录。只在新目录还没有数据时搬一次'),
-    asrProvider: z.union([z.const('deepseek'), z.const('sensevoice')]).default('deepseek')
-      .description('语音识别用哪家：deepseek = DeepSeek 云端（要 API Key，不用下模型）；sensevoice = 本机模型（约 230MB，录音不出这台电脑）'),
+    asrProvider: z.union([z.const('sensevoice'), z.const('deepseek')]).default('sensevoice')
+      .description('语音识别用哪家：sensevoice = 本机模型（默认，孩子的录音不出这台电脑，第一次要下约 230MB）；deepseek = DeepSeek 云端（识别快、不用下模型，但要填下面的 API Key，录音会上传）'),
     speechKey: z.string().default('').role('secret')
-      .description('DeepSeek API Key，语音识别和合成用。留空会依次找 Harness 凭据 DEEPSEEK_API_KEY、环境变量、~/.config/homework-helper/deepseek.key'),
+      .description('DeepSeek API Key。只有语音识别选了 deepseek 云端才需要：到 platform.deepseek.com 建一个 API Key 填在这里。留空会找 Harness 凭据 DEEPSEEK_API_KEY 或环境变量'),
     voice: z.object({
-      provider: z.union([z.const('deepseek'), z.const('chirp'), z.const('azure'), z.const('custom')]).default('deepseek').description('机器人的声音：deepseek = DeepSeek 语音合成（默认，要 API Key）；chirp = 机械哔嘟声（不要密钥）；azure = 微软语音（示例）；custom = 自己的文件'),
-      deepseekVoiceId: z.union([z.const('stella'), z.const('tide')]).default('stella').description('DeepSeek 声音：stella 是女声，tide 是男声'),
-      deepseekRobot: z.boolean().default(true).description('给 DeepSeek 的声音叠加机器人音效，更像小机器人；关掉就是自然语音'),
+      provider: z.union([z.const('chirp'), z.const('azure'), z.const('custom')]).default('chirp').description('机器人的声音：chirp = 机械哔嘟声（默认，不要密钥）；azure = 微软语音（示例）；custom = 自己的文件'),
       azureKey: z.string().default('').role('secret').description('Azure 语音密钥（provider 为 azure 时）'),
       azureRegion: z.string().default('').description('Azure 区域，如 eastasia'),
       azureVoice: z.string().default('').description('Azure 声音名，留空用云夏 HD'),
@@ -95,12 +90,12 @@ export async function apply(ctx, config = {}) {
   if (moved.length) logger.info(`[homework] 已从旧版搬来：${moved.join('、')}`)
   const token = deviceToken(dataDir)
 
-  // 语音识别和合成的 DeepSeek API Key（设置里填的 → Harness 凭据 → 环境变量 → 老 Python 助手留下的文件）
+  // 云端语音识别用的 DeepSeek API Key（设置里填的 → Harness 凭据 → 环境变量）
   const speechKey = createSpeechKey(ctx, () => cfg.speechKey, { log: logger })
   await speechKey.refresh()
 
   const voiceCfg = () => {
-    const v = { ...cfg.voice, apiKey: speechKey.current() }
+    const v = { ...cfg.voice }
     if (v.provider === 'azure' && (!v.azureKey || !v.azureRegion)) {
       const old = legacyAzure()
       v.azureKey ||= old.azureKey
@@ -109,7 +104,7 @@ export async function apply(ctx, config = {}) {
     return v
   }
 
-  // 语音识别：默认走 DeepSeek 云端，不用下模型；只有选了 sensevoice 或没有 Key 时才下载本机模型（约 230MB）
+  // 语音识别：默认走本机模型（录音不出这台电脑）；只有选了 deepseek 云端且确实有 Key 时才联网
   const modelDir = join(dataDir, 'models', 'sense-voice')
   const localAsr = new ASR(modelDir)
   const remoteAsr = new DeepSeekASR(() => speechKey.get(), { log: logger })
@@ -121,7 +116,7 @@ export async function apply(ctx, config = {}) {
   const abort = new AbortController()
   const useLocal = () => cfg.asrProvider === 'sensevoice' || !speechKey.current()
   ;(async () => {
-    if (!useLocal()) { logger.info('[homework] 语音识别用 DeepSeek 云端'); return }
+    if (!useLocal()) { logger.info('[homework] 语音识别用 DeepSeek 云端（录音会上传）'); return }
     if (!modelReady(modelDir) && cfg.migrateFrom) {
       const old = join(cfg.migrateFrom, '..', 'models', 'sense-voice')
       if (modelReady(old)) {
@@ -141,7 +136,14 @@ export async function apply(ctx, config = {}) {
   const voice = new Voice(dataDir, voiceCfg, logger)
   const hw = new Homework({ dataDir, brain, voice, asr, log: logger })
 
-  const getInfo = () => ({ port: cfg.port, voice: voice.provider, asr: asr.provider, asrReady: asr.ready(), asrNote: state.asrNote || asr.note() || (asr.ready() ? '' : '启动中') })
+  const getInfo = () => ({
+    port: cfg.port,
+    voice: voice.provider,
+    asr: asr.provider,
+    asrReady: asr.ready(),
+    asrNote: state.asrNote || asr.note() || (asr.ready() ? '' : '启动中'),
+    asrMissingKey: asr.missingKey(),
+  })
   // 插件有没有新版本：从 Harness 的插件管理器看本机装的版本，再去 npm 查最新（只有从插件市场装的才会提示）
   const pkgName = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).name
   const checkUpdates = updateChecker({ name: pkgName, getManager: () => { try { return ctx.get?.('pluginManager') } catch { return undefined } } })
